@@ -1,0 +1,65 @@
+# Configuration files with sensitive data
+.school.conf
+.school-*.conf
+!.school.conf.example
+
+# Deployment files (contain sensitive info and generated content)
+deployments/
+data/
+backups/
+
+# Docker volumes and runtime data
+*.env
+*-passwords.txt
+*-credentials.txt
+
+# Frappe Docker (large submodule or can be downloaded)
+frappe_docker/
+
+# Python
+__pycache__/
+*.py[cod]
+*$py.class
+*.so
+.Python
+venv/
+env/
+ENV/
+
+# Logs
+*.log
+easy-install.log
+
+# OS files
+.DS_Store
+Thumbs.db
+*.swp
+*.swo
+*~
+
+# IDE
+.vscode/
+.idea/
+*.sublime-project
+*.sublime-workspace
+
+# Temporary files
+*.tmp
+*.bak
+*.cache
+
+# Images (if they're just examples/screenshots)
+*.jpeg
+*.jpg
+*.png
+*.gif
+!docs/*.png
+!docs/*.jpg
+
+# Archives
+*.zip
+*.tar.gz
+*.tgz
+
+# Test data
+sample_students.csv

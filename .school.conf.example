@@ -1,0 +1,63 @@
+# ERPNext School Configuration File
+# Copy this to .school.conf and customize for your deployment
+
+# School identifier (used for container naming: USER-SCHOOL_CODE)
+SCHOOL_CODE="main_school"
+
+# Base port for HTTP access (each school should have unique ports)
+BASE_PORT=8080
+
+# Optional: HTTPS port (set to empty to disable)
+HTTPS_PORT=8443
+
+# Database configuration
+DB_PORT=3306
+REDIS_CACHE_PORT=6379
+REDIS_QUEUE_PORT=6380
+
+# ERPNext Version
+ERPNEXT_VERSION="version-15"
+
+# Site name (will be used as the ERPNext site name)
+SITE_NAME="school.localhost"
+
+# Admin credentials (used during initial setup)
+ADMIN_PASSWORD="admin"
+
+# Integration settings (optional)
+# Payment Gateway
+PAYMENT_GATEWAY_ENABLED=false
+PAYMENT_GATEWAY_KEY=""
+PAYMENT_GATEWAY_SECRET=""
+
+# SMS Gateway
+SMS_GATEWAY_ENABLED=false
+SMS_GATEWAY_API_KEY=""
+
+# Email settings
+EMAIL_ENABLED=false
+EMAIL_SMTP_HOST=""
+EMAIL_SMTP_PORT=587
+EMAIL_SMTP_USER=""
+EMAIL_SMTP_PASSWORD=""
+
+# Storage settings (relative to script directory for portability)
+# Leave empty to use default: ${SCRIPT_DIR}/data/${SCHOOL_CODE}
+STORAGE_PATH=""
+
+# Backup settings
+BACKUP_ENABLED=true
+# Leave empty to use default: ${SCRIPT_DIR}/backups/${SCHOOL_CODE}
+BACKUP_PATH=""
+
+# Resource limits (optional, for docker compose)
+BACKEND_MEMORY_LIMIT="2g"
+BACKEND_CPU_LIMIT="2"
+DB_MEMORY_LIMIT="1g"
+DB_CPU_LIMIT="1"
+
+# Custom domain (leave empty for localhost)
+CUSTOM_DOMAIN=""
+
+# Development mode
+DEV_MODE=false
