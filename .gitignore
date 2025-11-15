@@ -3,13 +3,12 @@
 .school-*.conf
 !.school.conf.example
 
-# Deployment files (contain sensitive info and generated content)
-deployments/
+# Data files (contain sensitive info and generated content)
 data/
 backups/
 
-# Docker volumes and runtime data
-*.env
+# Docker volumes and runtime data (ignore env files in data/ but keep the template docker-compose.yml)
+data/*.env
 *-passwords.txt
 *-credentials.txt
 

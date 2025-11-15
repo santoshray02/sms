@@ -24,10 +24,11 @@ BASE_PORT=8080
 HTTPS_PORT=8443
 ERPNEXT_VERSION="version-15"
 SITE_NAME="school.localhost"
+EMAIL=""
+ADMIN_PASSWORD=""
 
 # Data directory (store everything in script directory)
 DATA_DIR="${SCRIPT_DIR}/data"
-COMPOSE_DIR="${SCRIPT_DIR}/deployments"
 
 # Function to load configuration
 load_config() {
@@ -80,16 +81,10 @@ get_project_name() {
     echo "${USERNAME}_${SCHOOL_CODE}"
 }
 
-# Function to get compose file path
-get_compose_file() {
-    local project_name=$(get_project_name)
-    echo "${COMPOSE_DIR}/${project_name}-compose.yml"
-}
-
 # Function to get env file path
 get_env_file() {
     local project_name=$(get_project_name)
-    echo "${COMPOSE_DIR}/${project_name}.env"
+    echo "${DATA_DIR}/${project_name}.env"
 }
 
 # Function to get credentials file path
@@ -103,7 +98,7 @@ show_config_info() {
     load_config "$CONFIG_FILE"
 
     local project_name=$(get_project_name)
-    local compose_file=$(get_compose_file)
+    local env_file=$(get_env_file)
     local creds_file=$(get_credentials_file)
 
     echo -e "\n${BLUE}Configuration Info:${NC}\n"
@@ -128,8 +123,8 @@ show_config_info() {
         echo -e "  Status: ${RED}●${NC} Not deployed"
     fi
 
-    if [ -f "$compose_file" ]; then
-        echo -e "  Compose file: ${compose_file}"
+    if [ -f "$env_file" ]; then
+        echo -e "  Environment file: ${env_file}"
     fi
 
     if [ -f "$creds_file" ]; then
@@ -143,18 +138,18 @@ start_project() {
     load_config "$CONFIG_FILE"
 
     local project_name=$(get_project_name)
-    local compose_file=$(get_compose_file)
+    local env_file=$(get_env_file)
     local creds_file=$(get_credentials_file)
 
     print_info "Starting project: ${SCHOOL_CODE}"
 
-    if [ ! -f "$compose_file" ]; then
-        print_error "Compose file not found: ${compose_file}"
+    if [ ! -f "$env_file" ]; then
+        print_error "Environment file not found: ${env_file}"
         print_info "Run 'install' command first to deploy the instance"
         exit 1
     fi
 
-    docker compose -p "$project_name" -f "$compose_file" start
+    docker compose -p "$project_name" --env-file "$env_file" start
     print_success "Project ${SCHOOL_CODE} started"
 
     # Show access info
@@ -176,16 +171,16 @@ stop_project() {
     load_config "$CONFIG_FILE"
 
     local project_name=$(get_project_name)
-    local compose_file=$(get_compose_file)
+    local env_file=$(get_env_file)
 
     print_info "Stopping project: ${SCHOOL_CODE}"
 
-    if [ ! -f "$compose_file" ]; then
-        print_error "Compose file not found: ${compose_file}"
+    if [ ! -f "$env_file" ]; then
+        print_error "Environment file not found: ${env_file}"
         exit 1
     fi
 
-    docker compose -p "$project_name" -f "$compose_file" stop
+    docker compose -p "$project_name" --env-file "$env_file" stop
     print_success "Project ${SCHOOL_CODE} stopped"
 }
 
@@ -194,16 +189,16 @@ restart_project() {
     load_config "$CONFIG_FILE"
 
     local project_name=$(get_project_name)
-    local compose_file=$(get_compose_file)
+    local env_file=$(get_env_file)
 
     print_info "Restarting project: ${SCHOOL_CODE}"
 
-    if [ ! -f "$compose_file" ]; then
-        print_error "Compose file not found: ${compose_file}"
+    if [ ! -f "$env_file" ]; then
+        print_error "Environment file not found: ${env_file}"
         exit 1
     fi
 
-    docker compose -p "$project_name" -f "$compose_file" restart
+    docker compose -p "$project_name" --env-file "$env_file" restart
     print_success "Project ${SCHOOL_CODE} restarted"
 }
 
@@ -212,18 +207,18 @@ status_project() {
     load_config "$CONFIG_FILE"
 
     local project_name=$(get_project_name)
-    local compose_file=$(get_compose_file)
+    local env_file=$(get_env_file)
 
     print_info "Status for project: ${SCHOOL_CODE}"
     echo ""
 
-    if [ ! -f "$compose_file" ]; then
-        print_error "Compose file not found: ${compose_file}"
+    if [ ! -f "$env_file" ]; then
+        print_error "Environment file not found: ${env_file}"
         print_info "Run 'install' command first to deploy the instance"
         exit 1
     fi
 
-    docker compose -p "$project_name" -f "$compose_file" ps
+    docker compose -p "$project_name" --env-file "$env_file" ps
 }
 
 # Function to show logs
@@ -231,16 +226,16 @@ logs_project() {
     load_config "$CONFIG_FILE"
 
     local project_name=$(get_project_name)
-    local compose_file=$(get_compose_file)
+    local env_file=$(get_env_file)
 
-    if [ ! -f "$compose_file" ]; then
-        print_error "Compose file not found: ${compose_file}"
+    if [ ! -f "$env_file" ]; then
+        print_error "Environment file not found: ${env_file}"
         exit 1
     fi
 
     print_info "Showing logs for project: ${SCHOOL_CODE} (Ctrl+C to exit)"
     echo ""
-    docker compose -p "$project_name" -f "$compose_file" logs -f --tail=100
+    docker compose -p "$project_name" --env-file "$env_file" logs -f --tail=100
 }
 
 # Function to access shell
@@ -248,16 +243,163 @@ shell_project() {
     load_config "$CONFIG_FILE"
 
     local project_name=$(get_project_name)
-    local compose_file=$(get_compose_file)
+    local env_file=$(get_env_file)
 
-    if [ ! -f "$compose_file" ]; then
-        print_error "Compose file not found: ${compose_file}"
+    if [ ! -f "$env_file" ]; then
+        print_error "Environment file not found: ${env_file}"
         exit 1
     fi
 
     print_info "Accessing backend shell for project: ${SCHOOL_CODE}"
     echo ""
-    docker compose -p "$project_name" -f "$compose_file" exec backend bash
+    docker compose -p "$project_name" --env-file "$env_file" exec backend bash
+}
+
+# Function to generate passwords
+generate_password() {
+    openssl rand -hex 12
+}
+
+# Function to install a new project
+install_project() {
+    load_config "$CONFIG_FILE"
+
+    local project_name=$(get_project_name)
+    local env_file=$(get_env_file)
+    local creds_file=$(get_credentials_file)
+
+    print_info "Installing project: ${SCHOOL_CODE}"
+    echo ""
+
+    # Check if already installed
+    if [ -f "$env_file" ]; then
+        print_error "Project already installed: ${env_file}"
+        print_info "Use 'start' command to start the existing project"
+        exit 1
+    fi
+
+    # Create directories if they don't exist
+    mkdir -p "$DATA_DIR"
+
+    print_info "Generating configuration files..."
+
+    # Generate passwords if not provided
+    local admin_pass="${ADMIN_PASSWORD:-$(generate_password)}"
+    local db_pass="$(generate_password | cut -c1-9)"
+
+    # Calculate consecutive ports
+    local db_port=$((BASE_PORT + 1))
+    local redis_cache_port=$((BASE_PORT + 2))
+    local redis_queue_port=$((BASE_PORT + 3))
+    local redis_socketio_port=$((BASE_PORT + 4))
+
+    # Create environment file
+    cat > "$env_file" << EOF
+# ERPNext Configuration for ${SCHOOL_CODE}
+COMPOSE_PROJECT_NAME=${project_name}
+ERPNEXT_VERSION=${ERPNEXT_VERSION}
+DB_PASSWORD=${db_pass}
+DB_HOST=db
+DB_PORT=3306
+REDIS_CACHE=redis-cache:6379
+REDIS_QUEUE=redis-queue:6379
+REDIS_SOCKETIO=redis-socketio:6379
+LETSENCRYPT_EMAIL=${EMAIL:-admin@localhost}
+SITE_ADMIN_PASS=${admin_pass}
+SITES=\`${SITE_NAME}\`
+PULL_POLICY=missing
+HTTP_PUBLISH_PORT=${BASE_PORT}
+DB_PUBLISH_PORT=${db_port}
+REDIS_CACHE_PUBLISH_PORT=${redis_cache_port}
+REDIS_QUEUE_PUBLISH_PORT=${redis_queue_port}
+REDIS_SOCKETIO_PUBLISH_PORT=${redis_socketio_port}
+EOF
+
+    print_success "Environment file created: ${env_file}"
+
+    # Save credentials
+    cat > "$creds_file" << EOF
+# ERPNext Credentials for ${SCHOOL_CODE}
+# Generated on $(date)
+
+Site Name: ${SITE_NAME}
+Site URL: http://localhost:${BASE_PORT}
+$([ -n "$HTTPS_PORT" ] && echo "HTTPS URL: https://localhost:${HTTPS_PORT}")
+
+Administrator Username: Administrator
+Administrator Password: ${admin_pass}
+
+MariaDB Root Password: ${db_pass}
+
+Database Port: ${db_port}
+Redis Cache Port: ${redis_cache_port}
+Redis Queue Port: ${redis_queue_port}
+
+Project Name: ${project_name}
+Environment File: ${env_file}
+EOF
+
+    chmod 600 "$creds_file"
+    print_success "Credentials saved: ${creds_file}"
+
+    # Start containers
+    echo ""
+    print_info "Starting Docker containers..."
+    docker compose -p "$project_name" --env-file "$env_file" up -d
+
+    if [ $? -ne 0 ]; then
+        print_error "Failed to start Docker containers"
+        exit 1
+    fi
+
+    print_success "Docker containers started"
+
+    # Wait for services to be ready
+    print_info "Waiting for services to initialize (this may take a minute)..."
+    sleep 30
+
+    # Create site
+    print_info "Creating ERPNext site: ${SITE_NAME}"
+    docker compose -p "$project_name" --env-file "$env_file" exec -T backend \
+        bench new-site "$SITE_NAME" \
+        --mariadb-root-password "$db_pass" \
+        --admin-password "$admin_pass" \
+        --install-app erpnext \
+        --set-default
+
+    if [ $? -ne 0 ]; then
+        print_error "Failed to create site"
+        print_info "You can try creating the site manually:"
+        print_info "  docker compose -p ${project_name} --env-file ${env_file} exec backend bash"
+        print_info "  Then run: bench new-site ${SITE_NAME} --mariadb-root-password <password> --admin-password <password> --install-app erpnext --set-default"
+        exit 1
+    fi
+
+    print_success "Site created successfully"
+
+    # Show summary
+    echo ""
+    echo "========================================"
+    print_success "Installation completed successfully!"
+    echo "========================================"
+    echo ""
+    print_info "Access your site:"
+    echo "  URL: http://localhost:${BASE_PORT}"
+    if [ -n "$HTTPS_PORT" ]; then
+        echo "  HTTPS: https://localhost:${HTTPS_PORT}"
+    fi
+    echo "  Username: Administrator"
+    echo "  Password: ${admin_pass}"
+    echo ""
+    print_info "Credentials file: ${creds_file}"
+    echo ""
+    print_info "Management commands:"
+    echo "  ./manage.sh status  - Check status"
+    echo "  ./manage.sh logs    - View logs"
+    echo "  ./manage.sh shell   - Access shell"
+    echo "  ./manage.sh stop    - Stop services"
+    echo "  ./manage.sh start   - Start services"
+    echo ""
 }
 
 # Function to show help
@@ -321,8 +463,9 @@ ${GREEN}Container Naming:${NC}
 
 ${GREEN}File Locations:${NC}
   - Configurations: ${SCRIPT_DIR}/.school*.conf
-  - Compose files: ${SCRIPT_DIR}/deployments/
+  - Docker Compose: ${SCRIPT_DIR}/docker-compose.yml (template)
   - Data files: ${SCRIPT_DIR}/data/
+  - Environment files: ${SCRIPT_DIR}/data/*.env
   - Credentials: ${SCRIPT_DIR}/data/*-credentials.txt
 
 EOF
@@ -334,9 +477,7 @@ case "${1:-help}" in
         show_config_info
         ;;
     install)
-        print_error "Install command not yet implemented"
-        print_info "This will deploy a new ERPNext instance based on your configuration"
-        exit 1
+        install_project
         ;;
     start)
         start_project

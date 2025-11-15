@@ -5,15 +5,16 @@
 SCHOOL_CODE="main_school"
 
 # Base port for HTTP access (each school should have unique ports)
+# Consecutive ports will be automatically allocated:
+#   - HTTP: BASE_PORT (8080)
+#   - Database: BASE_PORT+1 (8081)
+#   - Redis Cache: BASE_PORT+2 (8082)
+#   - Redis Queue: BASE_PORT+3 (8083)
+#   - Redis SocketIO: BASE_PORT+4 (8084)
 BASE_PORT=8080
 
 # Optional: HTTPS port (set to empty to disable)
 HTTPS_PORT=8443
-
-# Database configuration
-DB_PORT=3306
-REDIS_CACHE_PORT=6379
-REDIS_QUEUE_PORT=6380
 
 # ERPNext Version
 ERPNEXT_VERSION="version-15"
@@ -23,6 +24,9 @@ SITE_NAME="school.localhost"
 
 # Admin credentials (used during initial setup)
 ADMIN_PASSWORD="admin"
+
+# Administrator email (used for notifications and SSL certificates)
+EMAIL="admin@localhost"
 
 # Integration settings (optional)
 # Payment Gateway
