@@ -4,15 +4,17 @@ Complete School Setup Script for ERPNext Education
 This script creates all necessary data for a functional school management system:
 - Sample users (Principal, Teachers, Students, Parents, Accountant)
 - Education module configuration
+- Gender master data
 - CBSE board programs and academic structure
 - Fee structures
 - Classrooms and courses
 - Student batches
-- Hides non-school modules
+- Sample students with guardians
+- Hides non-school modules via Desktop Icon blocking
 
 Usage:
     Run inside the frappe container:
-    bench --site <sitename> console < complete_school_setup.py
+    bench --site <sitename> execute frappe.school_setup.main
 """
 
 import frappe
@@ -441,6 +443,29 @@ def create_sample_users():
     frappe.db.commit()
 
 
+def setup_genders():
+    """Create Gender master data"""
+    print("\n=== Creating Gender Master Data ===\n")
+
+    genders = ["Male", "Female", "Other"]
+
+    for gender_name in genders:
+        try:
+            if not frappe.db.exists("Gender", gender_name):
+                gender = frappe.get_doc({
+                    "doctype": "Gender",
+                    "gender": gender_name
+                })
+                gender.insert(ignore_permissions=True)
+                print(f"✓ Created Gender: {gender_name}")
+            else:
+                print(f"⊙ Already exists: Gender {gender_name}")
+        except Exception as e:
+            print(f"✗ Failed to create Gender {gender_name}: {e}")
+
+    frappe.db.commit()
+
+
 def create_sample_students():
     """Create sample students with guardians"""
     print("\n=== Creating Sample Students ===\n")
@@ -578,19 +603,30 @@ def hide_non_school_modules():
     ]
 
     try:
+        hidden_count = 0
         for module in modules_to_hide:
-            # Check if the module exists in Module Def
-            if frappe.db.exists("Module Def", module):
-                module_doc = frappe.get_doc("Module Def", module)
-                if not module_doc.disabled:
-                    module_doc.disabled = 1
-                    module_doc.save(ignore_permissions=True)
+            # Use Desktop Icon to block modules
+            desktop_icons = frappe.get_all("Desktop Icon",
+                filters={
+                    "module_name": module,
+                    "type": "module"
+                },
+                fields=["name", "blocked"]
+            )
+
+            for icon in desktop_icons:
+                if not icon.blocked:
+                    frappe.db.set_value("Desktop Icon", icon.name, "blocked", 1)
+                    hidden_count += 1
                     print(f"✓ Hidden: {module}")
                 else:
                     print(f"⊙ Already hidden: {module}")
 
         frappe.db.commit()
-        print("\n✓ Non-school modules hidden successfully")
+        if hidden_count > 0:
+            print(f"\n✓ {hidden_count} non-school modules hidden successfully")
+        else:
+            print("\n⊙ All modules already hidden")
     except Exception as e:
         print(f"✗ Error hiding modules: {e}")
 
@@ -652,6 +688,7 @@ def main():
         setup_student_batches()
         setup_fee_structures()
         create_sample_users()
+        setup_genders()  # Create Gender master data before students
         create_sample_students()
         configure_education_settings()
         hide_non_school_modules()
