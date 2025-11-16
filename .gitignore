@@ -62,3 +62,11 @@ Thumbs.db
 
 # Test data
 sample_students.csv
+
+# Cleanup - ignore temporary files
+*.log
+*.jpeg
+*.jpg
+*.png
+*.zip
+main.zip
