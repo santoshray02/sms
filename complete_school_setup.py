@@ -297,6 +297,16 @@ def setup_fee_structures():
     """Create CBSE-aligned fee structures"""
     print("\n=== Creating Fee Structures ===\n")
 
+    # Get default receivable account
+    receivable_account = frappe.db.get_value("Company", {"is_group": 0}, "default_receivable_account")
+    if not receivable_account:
+        receivable_account = frappe.db.get_value("Account",
+            {"account_type": "Receivable", "is_group": 0}, "name")
+
+    if not receivable_account:
+        print("⚠ Warning: No receivable account found, skipping fee structures")
+        return
+
     fee_structures = [
         # Pre-Primary
         {"program": "Playgroup", "monthly_fee": 500},
@@ -334,6 +344,7 @@ def setup_fee_structures():
                         "doctype": "Fee Structure",
                         "academic_year": "2024-25",
                         "program": fs["program"],
+                        "receivable_account": receivable_account,
                         "components": [
                             {
                                 "fees_category": "Tuition Fee",
@@ -341,7 +352,7 @@ def setup_fee_structures():
                             }
                         ]
                     })
-                    doc.insert()
+                    doc.insert(ignore_permissions=True)
                     print(f"✓ Created: {structure_name}")
                 else:
                     print(f"⊙ Already exists: {structure_name}")
@@ -408,9 +419,13 @@ def create_sample_users():
                     "last_name": user_data["last_name"],
                     "enabled": 1,
                     "send_welcome_email": 0,
-                    "new_password": user_data["password"],
                 })
+                user.flags.ignore_password_policy = 1
                 user.insert(ignore_permissions=True)
+
+                # Set password after creation
+                user.new_password = user_data["password"]
+                user.save(ignore_permissions=True)
 
                 # Add roles
                 for role in user_data["roles"]:
@@ -529,6 +544,7 @@ def create_sample_students():
                         }
                     ]
                 })
+                student.flags.ignore_mandatory = True
                 student.insert(ignore_permissions=True)
                 print(f"✓ Created Student: {student_data['first_name']} {student_data['last_name']}")
 
