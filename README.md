@@ -59,42 +59,56 @@ View your credentials:
 cat ~/my_school-passwords.txt
 ```
 
-## What Gets Created Automatically
+## ⚡ Missing School Features? Fix in One Command!
+
+After ERPNext installation, you need to:
+1. Install the **Education App** (from https://github.com/frappe/education)
+2. Setup CBSE programs, courses, users, etc.
+
+### 🚀 One Command Setup
+
+```bash
+./install-education-and-setup.sh
+```
+
+**Time**: 7-10 minutes | **Result**: Fully functional school system
+
+**📖 See [SETUP.md](SETUP.md) for complete guide**
+
+### What You'll Get:
 
 ### 📚 Academic Data
-- **20 Programs:** Playgroup, Nursery, LKG, UKG, Class 1-10, Class 11-12 (Science/Commerce/Arts)
+- **20 CBSE Programs:** Playgroup, Nursery, LKG, UKG, Class 1-10, Class 11-12 (Science/Commerce/Arts)
+- **19 CBSE Curriculum Courses:** Subject-wise courses aligned with CBSE
 - **2 Academic Terms:** First Term (Apr-Sep), Second Term (Oct-Mar)
-- **12 Fee Categories:** Tuition, Admission, Transport, Lab, Library, Sports, Exam, Computer, Activity, Hostel, Development, Books
+- **11 Fee Categories:** Tuition, Admission, Transport, Lab, Library, Sports, Exam, Computer, Activity, Development, Books
+- **Academic Year 2024-25** with all configurations
 
-### 💰 Fee Structures (St. Francis English School Style)
+### 🏫 Infrastructure
+- **23 Classrooms** with seating capacity
+- **Special Rooms:** Science Lab, Computer Lab, Library
+- **20 Student Batches** for 2024-25 academic year
+
+### 💰 Fee Structures (CBSE-Aligned)
 **Tuition Fees (Monthly):**
-- Nursery/LKG: ₹550
-- UKG: ₹600
-- Class 1-2: ₹650
-- Class 3-4: ₹700
-- Class 5-6: ₹750
-- Class 7: ₹800
-- Class 8: ₹900
-- Class 9: ₹1,000
-- Class 10: ₹1,100
-
-**Transportation Routes (22 locations):**
-- ₹450-650: Local areas (Fatehpur, Raghopur, Paharpur, etc.)
-- ₹800-1,200: Mid-range (Behrampur, Jurawanpur, Mohanpur)
-- ₹1,500: Long distance (Rupas Mahaji)
+- Pre-Primary (Playgroup-UKG): ₹500-600
+- Primary (Class 1-5): ₹650-750
+- Middle School (Class 6-8): ₹750-900
+- High School (Class 9-10): ₹1,000-1,100
+- Senior Secondary (Class 11-12): ₹900-1,200 (varies by stream)
 
 ### 👥 Sample Users (Ready to Login)
-- **Principal:** principal@school.local / principal123 (Full Access)
+- **Principal:** principal@school.local / principal123 (Full System Access)
 - **Teachers (3):** teacher1/2/3@school.local / teacher123 (Academic Access)
 - **Accountant:** accountant@school.local / accounts123 (Fee Management)
-- **5 Sample Students** with Guardians (enrolled in various classes)
+- **5 Sample Students** with Guardian information (enrolled in various classes)
 
 ### ⚙️ Module Configuration
 - **Enabled:** Education, Accounting, Setup
-- **Hidden:** Manufacturing, Buying, Selling, Stock, HR, CRM, Projects, etc.
-- Focused interface for school management only!
+- **Hidden:** Manufacturing, Buying, Selling, Stock, HR, CRM, Projects, Support, Healthcare, etc.
+- Clean, focused interface for school management only!
 
-**📖 For complete details on sample users and demo data, see:** [SAMPLE_USERS_GUIDE.md](SAMPLE_USERS_GUIDE.md)
+**📖 For detailed setup instructions and troubleshooting, see:** [SCHOOL_SETUP_GUIDE.md](SCHOOL_SETUP_GUIDE.md)
 
 ## Command Options
 
