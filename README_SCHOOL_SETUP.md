@@ -4,7 +4,22 @@
 Your ERPNext installation is missing school-specific features.
 
 ## Solution
-One command installs everything:
+
+### Fresh Install (Recommended)
+One command does EVERYTHING from scratch:
+
+```bash
+./manage.sh install
+```
+
+This will:
+- Create Docker containers
+- Install ERPNext + Education app
+- Create all school data
+- Configure everything
+
+### Existing Install
+If ERPNext is already installed:
 
 ```bash
 ./install-education-and-setup.sh
@@ -20,7 +35,7 @@ One command installs everything:
 7. Creates 5 Sample Students
 8. Hides non-school modules
 
-**Time**: 7-10 minutes
+**Time**: 10-15 minutes (fresh) or 7-10 minutes (existing)
 
 ## After Setup
 
@@ -37,7 +52,8 @@ One command installs everything:
 ## Files
 
 **Run This:**
-- `install-education-and-setup.sh` - Complete setup (Education + data)
+- `./manage.sh install` - Fresh install (does EVERYTHING automatically)
+- `install-education-and-setup.sh` - Existing install (Education + data)
 - `setup-now.sh` - Data setup only (if Education already installed)
 
 **Documentation:**
@@ -64,7 +80,10 @@ One command installs everything:
 ## Quick Commands
 
 ```bash
-# Complete setup
+# Fresh install (does everything)
+./manage.sh install
+
+# Or existing install
 ./install-education-and-setup.sh
 
 # Check status

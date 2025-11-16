@@ -5,12 +5,15 @@
 📋 YOUR SITUATION:
   ERPNext installed but missing school-specific features
 
-🎯 THE FIX:
-  One command installs everything:
+🎯 THE FIX (Choose One):
 
+  Option 1 (Fresh Install - Does Everything):
+  ./manage.sh install
+
+  Option 2 (Existing Install):
   ./install-education-and-setup.sh
 
-⏱️  TIME: 7-10 minutes
+⏱️  TIME: 10-15 minutes (fresh) or 7-10 minutes (existing)
 
 📖 DOCUMENTATION:
   Read: README_SCHOOL_SETUP.md (start here!)
@@ -28,19 +31,26 @@
 
 ✅ CHECKLIST:
 
+Fresh Install:
+[ ] 1. Edit .school.conf (if needed)
+[ ] 2. Run: ./manage.sh install
+[ ] 3. Wait 10-15 minutes
+[ ] 4. Login at http://localhost:8080
+[ ] 5. Change default passwords
+
+Existing Install:
 [ ] 1. Run: ./install-education-and-setup.sh
-[ ] 2. Wait 7-10 minutes for completion
-[ ] 3. Login at http://localhost:8080
-[ ] 4. Change default passwords
-[ ] 5. Read QUICK_SETUP.md for daily tasks
+[ ] 2. Wait 7-10 minutes
+[ ] 3. Login and change passwords
 
 ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 
 📁 KEY FILES:
 
   Scripts:
-  • install-education-and-setup.sh  ← RUN THIS
-  • setup-now.sh                    ← If Education already installed
+  • manage.sh install               ← FRESH INSTALL (does everything!)
+  • install-education-and-setup.sh  ← Existing install only
+  • setup-now.sh                    ← Data setup only
   • manage.sh                       ← Container management
 
   Docs:
@@ -53,6 +63,7 @@
 
 🚀 READY? RUN THIS NOW:
 
-  ./install-education-and-setup.sh
+  Fresh Install:    ./manage.sh install
+  Existing Install: ./install-education-and-setup.sh
 
 ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━

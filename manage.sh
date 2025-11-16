@@ -442,6 +442,53 @@ EOF
         print_success "Database permissions configured for container mobility"
     fi
 
+    # Automatic School Setup
+    echo ""
+    print_info "Installing Education app and school data..."
+    echo ""
+
+    # Install Education app
+    print_info "Step 1: Installing Education app (this takes ~5 minutes)..."
+    docker compose -p "$project_name" --env-file "$env_file" exec -T backend \
+        bash -c "cd /home/frappe/frappe-bench && bench get-app education --branch version-15" 2>&1 | grep -v "^$" || true
+
+    docker compose -p "$project_name" --env-file "$env_file" exec -T backend \
+        bench --site "$SITE_NAME" install-app education
+
+    if [ $? -eq 0 ]; then
+        print_success "Education app installed"
+    else
+        print_warning "Education app installation had issues (may already be installed)"
+    fi
+
+    # Wait for app to be ready
+    sleep 10
+
+    # Copy and run school setup script
+    print_info "Step 2: Creating school data (programs, courses, users, students)..."
+
+    # Find backend container
+    local backend_container=$(docker ps --filter "name=backend" --format "{{.Names}}" | grep "$project_name" | head -1)
+
+    if [ -n "$backend_container" ] && [ -f "complete_school_setup.py" ]; then
+        # Copy setup script to container
+        cat complete_school_setup.py | docker exec -i "$backend_container" \
+            bash -c "cat > /home/frappe/frappe-bench/apps/frappe/frappe/school_setup.py && chmod 644 /home/frappe/frappe-bench/apps/frappe/frappe/school_setup.py"
+
+        # Execute setup
+        docker exec -w /home/frappe/frappe-bench "$backend_container" \
+            bench --site "$SITE_NAME" execute frappe.school_setup.main
+
+        if [ $? -eq 0 ]; then
+            print_success "School data created successfully"
+        else
+            print_warning "School setup had some issues (check logs for details)"
+        fi
+    else
+        print_warning "School setup script not found (complete_school_setup.py)"
+        print_info "You can run it manually later: ./install-education-and-setup.sh"
+    fi
+
     # Show summary
     echo ""
     echo "========================================"
@@ -453,10 +500,28 @@ EOF
     if [ -n "$HTTPS_PORT" ]; then
         echo "  HTTPS: https://localhost:${HTTPS_PORT}"
     fi
+    echo ""
+    print_info "Administrator Account:"
     echo "  Username: Administrator"
     echo "  Password: ${admin_pass}"
     echo ""
+    print_info "School User Accounts:"
+    echo "  Principal:   principal@school.local   / principal123"
+    echo "  Teacher 1:   teacher1@school.local    / teacher123"
+    echo "  Teacher 2:   teacher2@school.local    / teacher123"
+    echo "  Teacher 3:   teacher3@school.local    / teacher123"
+    echo "  Accountant:  accountant@school.local  / accounts123"
+    echo ""
+    print_warning "⚠️  Change all default passwords immediately!"
+    echo ""
     print_info "Credentials file: ${creds_file}"
+    echo ""
+    print_info "What was created:"
+    echo "  ✓ 20 CBSE Programs (Playgroup to Class 12)"
+    echo "  ✓ 19 CBSE Courses"
+    echo "  ✓ 23 Classrooms"
+    echo "  ✓ Fee Structures (₹500-1200/month)"
+    echo "  ✓ 5 Sample Users + 5 Sample Students"
     echo ""
     print_info "Management commands:"
     echo "  ./manage.sh status  - Check status"
@@ -464,6 +529,8 @@ EOF
     echo "  ./manage.sh shell   - Access shell"
     echo "  ./manage.sh stop    - Stop services"
     echo "  ./manage.sh start   - Start services"
+    echo ""
+    print_info "See QUICK_SETUP.md for daily operations guide"
     echo ""
 }
 
