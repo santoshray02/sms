@@ -255,6 +255,56 @@ shell_project() {
     docker compose -p "$project_name" --env-file "$env_file" exec backend bash
 }
 
+# Function to set hostname for site
+set_hostname() {
+    load_config "$CONFIG_FILE"
+
+    local project_name=$(get_project_name)
+    local env_file=$(get_env_file)
+    local hostname="$1"
+
+    if [ -z "$hostname" ]; then
+        print_error "Hostname required"
+        echo "Usage: $0 set-hostname <hostname>"
+        echo "Example: $0 set-hostname internal3.paperentry.ai"
+        exit 1
+    fi
+
+    if [ ! -f "$env_file" ]; then
+        print_error "Environment file not found: ${env_file}"
+        print_info "Run 'install' command first to deploy the instance"
+        exit 1
+    fi
+
+    print_info "Setting hostname to: ${hostname}"
+
+    # Set host_name in site config
+    docker compose -p "$project_name" --env-file "$env_file" exec -T backend \
+        bench --site "${SITE_NAME}" set-config host_name "http://${hostname}:${BASE_PORT}"
+
+    if [ $? -ne 0 ]; then
+        print_error "Failed to set hostname config"
+        exit 1
+    fi
+
+    # Create symlink for hostname routing
+    print_info "Creating site symlink for hostname..."
+    docker compose -p "$project_name" --env-file "$env_file" exec -T backend \
+        bash -c "cd sites && ln -sf '${SITE_NAME}' '${hostname}'"
+
+    if [ $? -eq 0 ]; then
+        print_success "Hostname set successfully"
+        echo ""
+        print_info "Restarting services to apply changes..."
+        docker compose -p "$project_name" --env-file "$env_file" restart frontend websocket backend
+        echo ""
+        print_success "Site can now be accessed at: http://${hostname}:${BASE_PORT}"
+    else
+        print_error "Failed to create hostname symlink"
+        exit 1
+    fi
+}
+
 # Function to generate passwords
 generate_password() {
     openssl rand -hex 12
@@ -377,6 +427,21 @@ EOF
 
     print_success "Site created successfully"
 
+    # Fix database permissions for container restarts
+    print_info "Configuring database permissions..."
+    local site_db_name=$(docker compose -p "$project_name" --env-file "$env_file" exec -T backend \
+        bench --site "$SITE_NAME" get-site-config db_name 2>/dev/null | tr -d '\r')
+    local site_db_user=$(docker compose -p "$project_name" --env-file "$env_file" exec -T backend \
+        bench --site "$SITE_NAME" get-site-config db_name 2>/dev/null | tr -d '\r')
+    local site_db_pass=$(docker compose -p "$project_name" --env-file "$env_file" exec -T backend \
+        bench --site "$SITE_NAME" get-site-config db_password 2>/dev/null | tr -d '\r')
+
+    if [ -n "$site_db_user" ] && [ -n "$site_db_pass" ]; then
+        docker compose -p "$project_name" --env-file "$env_file" exec -T db \
+            mysql -uroot -p"$db_pass" -e "GRANT ALL PRIVILEGES ON \`$site_db_name\`.* TO '$site_db_user'@'%' IDENTIFIED BY '$site_db_pass'; FLUSH PRIVILEGES;" 2>/dev/null
+        print_success "Database permissions configured for container mobility"
+    fi
+
     # Show summary
     echo ""
     echo "========================================"
@@ -402,6 +467,124 @@ EOF
     echo ""
 }
 
+# Function to recreate containers (keeps data)
+recreate_project() {
+    load_config "$CONFIG_FILE"
+
+    local project_name=$(get_project_name)
+    local env_file=$(get_env_file)
+
+    print_info "Recreating containers for project: ${SCHOOL_CODE}"
+
+    if [ ! -f "$env_file" ]; then
+        print_error "Environment file not found: ${env_file}"
+        print_info "Run 'install' command first to deploy the instance"
+        exit 1
+    fi
+
+    print_warning "This will recreate all containers but keep your data"
+    echo ""
+
+    # Stop and remove containers (but keep volumes)
+    docker compose -p "$project_name" --env-file "$env_file" down
+
+    # Recreate containers
+    docker compose -p "$project_name" --env-file "$env_file" up -d
+
+    if [ $? -eq 0 ]; then
+        print_success "Containers recreated successfully"
+        echo ""
+        print_info "Check status with: ./manage.sh status"
+    else
+        print_error "Failed to recreate containers"
+        exit 1
+    fi
+}
+
+# Function to rebuild containers (with image pull)
+rebuild_project() {
+    load_config "$CONFIG_FILE"
+
+    local project_name=$(get_project_name)
+    local env_file=$(get_env_file)
+
+    print_info "Rebuilding project: ${SCHOOL_CODE}"
+
+    if [ ! -f "$env_file" ]; then
+        print_error "Environment file not found: ${env_file}"
+        print_info "Run 'install' command first to deploy the instance"
+        exit 1
+    fi
+
+    print_warning "This will pull new images and recreate containers (data will be kept)"
+    echo ""
+
+    # Stop and remove containers
+    docker compose -p "$project_name" --env-file "$env_file" down
+
+    # Pull latest images
+    print_info "Pulling latest images..."
+    docker compose -p "$project_name" --env-file "$env_file" pull
+
+    # Recreate containers
+    print_info "Recreating containers..."
+    docker compose -p "$project_name" --env-file "$env_file" up -d
+
+    if [ $? -eq 0 ]; then
+        print_success "Project rebuilt successfully"
+        echo ""
+        print_info "Check status with: ./manage.sh status"
+    else
+        print_error "Failed to rebuild project"
+        exit 1
+    fi
+}
+
+# Function to reset project (delete everything)
+reset_project() {
+    load_config "$CONFIG_FILE"
+
+    local project_name=$(get_project_name)
+    local env_file=$(get_env_file)
+    local creds_file=$(get_credentials_file)
+
+    print_warning "⚠️  WARNING: This will DELETE ALL DATA for ${SCHOOL_CODE} ⚠️"
+    echo ""
+    echo "This includes:"
+    echo "  - All containers"
+    echo "  - All volumes (database, sites, redis data)"
+    echo "  - Configuration files"
+    echo ""
+    read -p "Type 'DELETE' to confirm: " confirm
+
+    if [ "$confirm" != "DELETE" ]; then
+        print_info "Reset cancelled"
+        exit 0
+    fi
+
+    print_info "Resetting project: ${SCHOOL_CODE}"
+
+    # Stop and remove everything including volumes
+    if [ -f "$env_file" ]; then
+        docker compose -p "$project_name" --env-file "$env_file" down -v
+    fi
+
+    # Remove config files
+    if [ -f "$env_file" ]; then
+        rm -f "$env_file"
+        print_success "Removed: ${env_file}"
+    fi
+
+    if [ -f "$creds_file" ]; then
+        rm -f "$creds_file"
+        print_success "Removed: ${creds_file}"
+    fi
+
+    print_success "Project reset complete"
+    echo ""
+    print_info "You can now run './manage.sh install' to create a fresh installation"
+}
+
 # Function to show help
 show_help() {
     cat << EOF
@@ -417,6 +600,10 @@ ${GREEN}Commands:${NC}
   ${YELLOW}start${NC}             Start the school instance
   ${YELLOW}stop${NC}              Stop the school instance
   ${YELLOW}restart${NC}           Restart the school instance
+  ${YELLOW}recreate${NC}          Recreate containers (keeps data) - useful after config changes
+  ${YELLOW}rebuild${NC}           Pull new images and recreate containers (keeps data)
+  ${YELLOW}reset${NC}             Delete everything and start fresh (requires confirmation)
+  ${YELLOW}set-hostname${NC}      Set the hostname for the site (e.g., set-hostname internal3.paperentry.ai)
   ${YELLOW}status${NC}            Show detailed container status
   ${YELLOW}logs${NC}              Show and follow logs
   ${YELLOW}shell${NC}             Access backend shell
@@ -442,6 +629,18 @@ ${GREEN}Examples:${NC}
   $0 status
   $0 logs
   $0 shell
+
+  # Update docker-compose.yml and recreate containers
+  $0 recreate
+
+  # Pull latest images and rebuild
+  $0 rebuild
+
+  # Complete reset (deletes all data)
+  $0 reset
+
+  # Set custom hostname for external access
+  $0 set-hostname internal3.paperentry.ai
 
   # Use specific config file for multiple schools
   CONFIG_FILE=.school-main.conf $0 start
@@ -487,6 +686,18 @@ case "${1:-help}" in
         ;;
     restart)
         restart_project
+        ;;
+    recreate)
+        recreate_project
+        ;;
+    rebuild)
+        rebuild_project
+        ;;
+    reset)
+        reset_project
+        ;;
+    set-hostname)
+        set_hostname "$2"
         ;;
     status|ps)
         status_project
