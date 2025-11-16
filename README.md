@@ -2,6 +2,14 @@
 
 Simple one-command deployment of ERPNext Education for school management with automatic setup of programs, fee categories, and academic data.
 
+## What's New
+
+- ✅ **MariaDB 10.8**: Fully compatible with Frappe Framework (no compatibility warnings!)
+- ✅ **Advanced Container Management**: recreate, rebuild, reset commands
+- ✅ **Custom Hostname Support**: Easy setup with automatic symlink creation
+- ✅ **Automatic Database Permissions**: Handles container IP changes seamlessly
+- ✅ **Improved Healthchecks**: Reliable container startup detection
+
 ## Quick Start
 
 ### Prerequisites
@@ -127,28 +135,35 @@ python3 ./easy-install.py deploy \
 
 ## Managing Your Deployment
 
-### Configuration-Based Management (NEW!)
+### Configuration-Based Management (Recommended)
 
-The `manage.sh` script now uses configuration files for easier management. All data is stored in the project directory for portability.
+The `manage.sh` script uses configuration files for easier management. All data is stored in the project directory for portability.
 
 #### Quick Setup
 
 ```bash
 # 1. Create your configuration
 cp .school.conf.example .school.conf
-vim .school.conf  # Edit SCHOOL_CODE and BASE_PORT
+vim .school.conf  # Edit SCHOOL_CODE, BASE_PORT, and SITE_NAME
 
 # 2. Show configuration info
 ./manage.sh info
 
 # 3. Deploy and manage
-./manage.sh install
-./manage.sh start
-./manage.sh status
-./manage.sh logs
-./manage.sh stop
-./manage.sh shell
+./manage.sh install    # Creates everything with MariaDB 10.8
+./manage.sh start      # Start services
+./manage.sh status     # Check status
+./manage.sh logs       # View logs
+./manage.sh stop       # Stop services
+./manage.sh shell      # Access backend shell
 ```
+
+#### Key Features
+
+- **MariaDB 10.8**: Fully compatible with Frappe Framework (no warnings!)
+- **Automatic Database Permissions**: Handles container IP changes automatically
+- **Custom Hostnames**: Easy setup with `set-hostname` command
+- **Persistent Data**: All data stored locally in `./data/` directory
 
 #### Multiple Schools
 
@@ -170,6 +185,7 @@ CONFIG_FILE=.school-branch.conf ./manage.sh start
 
 #### Available Commands
 
+**Basic Commands:**
 ```bash
 ./manage.sh info          # Show configuration and deployment info
 ./manage.sh install       # Deploy a new school instance
@@ -179,7 +195,21 @@ CONFIG_FILE=.school-branch.conf ./manage.sh start
 ./manage.sh status        # Show detailed container status
 ./manage.sh logs          # Show and follow logs
 ./manage.sh shell         # Access backend shell
-./manage.sh help          # Show help message
+```
+
+**Advanced Commands (NEW!):**
+```bash
+./manage.sh recreate      # Recreate containers (keeps data)
+                         # Use after updating docker-compose.yml
+
+./manage.sh rebuild       # Pull new images and rebuild (keeps data)
+                         # Use to update ERPNext/Frappe versions
+
+./manage.sh reset        # Complete fresh start (deletes everything)
+                         # Requires typing 'DELETE' to confirm
+
+./manage.sh set-hostname <hostname>  # Configure custom hostname
+                                    # Example: ./manage.sh set-hostname internal3.paperentry.ai
 ```
 
 #### Container Naming
@@ -193,13 +223,28 @@ Containers use the pattern: `USERNAME_SCHOOLCODE`
 ```
 erpnext-school/
 ├── manage.sh                    # Management script
+├── docker-compose.yml           # Docker configuration (MariaDB 10.8)
 ├── .school.conf                 # Your default config
 ├── .school-*.conf               # Additional school configs
-├── deployments/                 # Docker compose files
-│   └── username_schoolcode-compose.yml
-├── data/                        # Application data
-│   └── username_schoolcode-credentials.txt
-└── backups/                     # Backups
+└── data/                        # All project data
+    ├── username_schoolcode.env              # Environment variables
+    ├── username_schoolcode-credentials.txt  # Login credentials
+    └── [Docker volumes managed automatically]
+```
+
+#### Custom Hostname Setup
+
+To access your site via a custom domain:
+
+```bash
+# After installation
+./manage.sh set-hostname internal3.paperentry.ai
+
+# This automatically:
+# 1. Updates site configuration
+# 2. Creates hostname symlink
+# 3. Restarts services
+# 4. Makes site accessible at http://internal3.paperentry.ai:8080
 ```
 
 ### Direct Docker Commands (Alternative)
@@ -281,35 +326,61 @@ Each project gets its own:
 ### Forgot Admin Password?
 
 ```bash
-docker compose -p my_school exec backend \
-    bench --site school.yourdomain.com set-admin-password 'NewPassword123'
+./manage.sh shell
+# Inside the container:
+bench --site school.localhost set-admin-password 'NewPassword123'
 ```
 
 ### Site Not Loading?
 
 Check logs:
 ```bash
-docker compose -p my_school logs backend
+./manage.sh logs
 ```
 
 ### Database Connection Issues?
 
-Restart services:
+If you get database connection errors after container restart:
 ```bash
-docker compose -p my_school restart
+./manage.sh restart
 ```
 
-### Complete Cleanup
+The script automatically configures database permissions to handle container IP changes.
+
+### After Updating docker-compose.yml
+
+When you modify `docker-compose.yml` (e.g., changing MariaDB version):
+```bash
+./manage.sh recreate
+```
+
+This recreates containers with new configuration while keeping your data.
+
+### Updating ERPNext/Frappe
+
+To update to the latest version:
+```bash
+./manage.sh rebuild
+```
+
+This pulls new images and rebuilds containers while preserving data.
+
+### Complete Fresh Start
 
 To remove everything and start fresh:
 ```bash
-# Stop and remove containers
-docker compose -p my_school down -v
+./manage.sh reset
+# Type 'DELETE' to confirm
+./manage.sh install
+```
 
-# Remove configuration files
-rm ~/my_school-compose.yml
-rm ~/my_school.env
-rm ~/my_school-passwords.txt
+### Port Already in Use?
+
+Edit `.school.conf` and change `BASE_PORT` to an available port:
+```bash
+vim .school.conf
+# Change BASE_PORT=8080 to BASE_PORT=8090
+./manage.sh recreate
 ```
 
 ## Manual Setup (Advanced)
