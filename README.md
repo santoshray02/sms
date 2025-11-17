@@ -1,63 +1,66 @@
-# ERPNext Education - Easy Install
+# ERPNext School Management System
 
-Simple one-command deployment of ERPNext Education for school management with automatic setup of programs, fee categories, and academic data.
+Complete CBSE-aligned school management system with one-command deployment. Includes ERPNext, Education app, and automatic setup of all academic data.
 
-## What's New
+## ⭐ What's Included
 
-- ✅ **MariaDB 10.8**: Fully compatible with Frappe Framework (no compatibility warnings!)
-- ✅ **Advanced Container Management**: recreate, rebuild, reset commands
-- ✅ **Custom Hostname Support**: Easy setup with automatic symlink creation
-- ✅ **Automatic Database Permissions**: Handles container IP changes seamlessly
-- ✅ **Improved Healthchecks**: Reliable container startup detection
+- ✅ **MariaDB 10.8**: Fully compatible with Frappe Framework
+- ✅ **Complete Academic Setup**: 20 CBSE Programs, 19 Courses, Academic Year & Terms
+- ✅ **Fee Management**: 11 Fee Categories, Fee Structures for all programs
+- ✅ **Master Data**: Student Categories (SC/ST/OBC/EWS), Gender records
+- ✅ **Sample Data**: Users (Principal, Teachers, Accountant), Students, Guardians
+- ✅ **Clean Interface**: Non-school modules hidden, Education Settings configured
 
-## Quick Start
+## 🚀 Quick Start (Recommended)
 
 ### Prerequisites
 
 - Linux system (Ubuntu/Debian recommended)
-- Python 3.6+
+- Docker installed
 - Internet connection
 
 ### Installation
 
-One command deploys everything:
+**Step 1:** Configure your school
 
 ```bash
-python3 ./easy-install.py deploy \
-    --project=my_school \
-    --email=admin@yourschool.com \
-    --school-name="Your School Name" \
-    --image=ghcr.io/frappe/education \
-    --version=latest \
-    --app=education \
-    --sitename school.yourdomain.com
+# Edit .school.conf with your settings
+vim .school.conf
 ```
 
-**That's it!** The script will:
-1. Install Docker (if not present)
-2. Download and configure Frappe Docker
-3. Start all services (database, backend, frontend, redis, etc.)
-4. Create your site with the Education app
-5. **Automatically setup:**
-   - Academic Year (2024-25)
-   - Academic Terms (Term 1 & Term 2)
-   - 20 Programs (Playgroup to Class 12 with streams)
-   - 11 Fee Categories (Tuition, Transport, Lab, etc.)
+**Step 2:** Deploy everything with one command
+
+```bash
+./manage.sh install
+```
+
+**That's it!** This command will:
+1. Create Docker containers with MariaDB 10.8
+2. Install ERPNext v15
+3. Install Education app (https://github.com/frappe/education)
+4. Setup complete school data automatically
+5. Configure everything for production use
+
+**Time**: 10-15 minutes for complete setup
 
 ### Access Your Site
 
-After installation completes:
+After installation:
 
-```
-URL: http://localhost (or your domain)
-Username: Administrator
-Password: [check ~/my_school-passwords.txt]
-```
-
-View your credentials:
 ```bash
-cat ~/my_school-passwords.txt
+# View your login credentials
+cat data/santosh_stfes-credentials.txt
+
+# Access the site
+URL: http://localhost:8080
+Username: Administrator
+Password: [from credentials file]
 ```
+
+**Or login as:**
+- Principal: principal@school.local / principal123
+- Teacher: teacher1@school.local / teacher123
+- Accountant: accountant@school.local / accounts123
 
 ## ⚡ Missing School Features? Fix in One Command!
 
@@ -120,83 +123,52 @@ After ERPNext installation, you need to:
 
 **📖 For detailed setup instructions and troubleshooting, see:** [SCHOOL_SETUP_GUIDE.md](SCHOOL_SETUP_GUIDE.md)
 
-## Command Options
+## 🛠️ Managing Your Deployment
+
+### Daily Operations
 
 ```bash
-python3 ./easy-install.py deploy \
-    --project=PROJECT_NAME \              # Unique project identifier
-    --email=YOUR_EMAIL \                  # Administrator email & for SSL certificates
-    --school-name="SCHOOL_NAME" \         # School/Administrator name (e.g., "St. Francis School")
-    --image=ghcr.io/frappe/education \   # Docker image
-    --version=latest \                    # Image version
-    --app=education \                     # App to install
-    --sitename=SITE_NAME \                # Your site domain
-    --no-ssl \                            # (Optional) Disable HTTPS
-    --http-port=8080 \                    # (Optional) Custom HTTP port
-    --https-port=8443                     # (Optional) Custom HTTPS port (requires real domain)
-```
-
-### SSL on Custom Ports
-
-**NEW!** You can now use SSL with custom ports:
-
-```bash
-python3 ./easy-install.py deploy \
-    --project=school_main \
-    --email=admin@yourschool.com \
-    --sitename=school.yourdomain.com \
-    --app=education \
-    --http-port=8080 \
-    --https-port=8443
-```
-
-**Requirements for SSL:**
-- Real domain name pointing to your server
-- Domain must be accessible from the internet
-- Valid email address (for Let's Encrypt)
-
-**For detailed SSL setup guide, see:** [SSL_CUSTOM_PORT_GUIDE.md](SSL_CUSTOM_PORT_GUIDE.md)
-
-## Managing Your Deployment
-
-### Configuration-Based Management (Recommended)
-
-The `manage.sh` script uses configuration files for easier management. All data is stored in the project directory for portability.
-
-#### Quick Setup
-
-```bash
-# 1. Create your configuration
-cp .school.conf.example .school.conf
-vim .school.conf  # Edit SCHOOL_CODE, BASE_PORT, and SITE_NAME
-
-# 2. Show configuration info
-./manage.sh info
-
-# 3. Deploy and manage
-./manage.sh install    # Creates everything with MariaDB 10.8
 ./manage.sh start      # Start services
-./manage.sh status     # Check status
-./manage.sh logs       # View logs
 ./manage.sh stop       # Stop services
+./manage.sh restart    # Restart services
+./manage.sh status     # Check container status
+./manage.sh logs       # View and follow logs
 ./manage.sh shell      # Access backend shell
+./manage.sh info       # Show configuration details
 ```
 
-#### Key Features
+### Advanced Commands
 
-- **MariaDB 10.8**: Fully compatible with Frappe Framework (no warnings!)
-- **Automatic Database Permissions**: Handles container IP changes automatically
-- **Custom Hostnames**: Easy setup with `set-hostname` command
+```bash
+./manage.sh recreate   # Recreate containers (keeps data)
+                       # Use after updating docker-compose.yml
+
+./manage.sh rebuild    # Pull new images and rebuild (keeps data)
+                       # Use to update ERPNext/Frappe versions
+
+./manage.sh reset      # Complete fresh start (deletes everything)
+                       # Requires typing 'DELETE' to confirm
+
+./manage.sh set-hostname <hostname>  # Configure custom hostname
+                                    # Example: internal3.paperentry.ai
+```
+
+### Key Features
+
+- **MariaDB 10.8**: Fully compatible with Frappe Framework
+- **Automatic Database Permissions**: Handles container IP changes
+- **Configuration-Based**: Uses `.school.conf` for easy management
 - **Persistent Data**: All data stored locally in `./data/` directory
+- **Container Auto-Discovery**: No need to specify project names
 
-#### Multiple Schools
+### Multiple Schools
 
 You can manage multiple schools using different config files:
 
 ```bash
 # Create configs for different schools
-cp .school.conf.example .school-main.conf
-cp .school.conf.example .school-branch.conf
+cp .school.conf .school-main.conf
+cp .school.conf .school-branch.conf
 
 # Edit each with different SCHOOL_CODE and BASE_PORT
 vim .school-main.conf    # SCHOOL_CODE="main", BASE_PORT=8080
@@ -207,56 +179,28 @@ CONFIG_FILE=.school-main.conf ./manage.sh start
 CONFIG_FILE=.school-branch.conf ./manage.sh start
 ```
 
-#### Available Commands
-
-**Basic Commands:**
-```bash
-./manage.sh info          # Show configuration and deployment info
-./manage.sh install       # Deploy a new school instance
-./manage.sh start         # Start the school instance
-./manage.sh stop          # Stop the school instance
-./manage.sh restart       # Restart the school instance
-./manage.sh status        # Show detailed container status
-./manage.sh logs          # Show and follow logs
-./manage.sh shell         # Access backend shell
-```
-
-**Advanced Commands (NEW!):**
-```bash
-./manage.sh recreate      # Recreate containers (keeps data)
-                         # Use after updating docker-compose.yml
-
-./manage.sh rebuild       # Pull new images and rebuild (keeps data)
-                         # Use to update ERPNext/Frappe versions
-
-./manage.sh reset        # Complete fresh start (deletes everything)
-                         # Requires typing 'DELETE' to confirm
-
-./manage.sh set-hostname <hostname>  # Configure custom hostname
-                                    # Example: ./manage.sh set-hostname internal3.paperentry.ai
-```
-
-#### Container Naming
+### Container Naming
 
 Containers use the pattern: `USERNAME_SCHOOLCODE`
-- Example: `santosh_main_school_backend`, `santosh_main_school_db`, etc.
-- No more project listing needed - containers are found automatically!
+- Example: `santosh_stfes-backend-1`, `santosh_stfes-db-1`, etc.
+- Containers are found automatically - no need to specify project names!
 
-#### File Organization
+### File Organization
 
 ```
 erpnext-school/
 ├── manage.sh                    # Management script
 ├── docker-compose.yml           # Docker configuration (MariaDB 10.8)
-├── .school.conf                 # Your default config
-├── .school-*.conf               # Additional school configs
-└── data/                        # All project data
+├── .school.conf                 # Your configuration
+├── complete_school_setup.py     # School data setup script
+├── install-education-and-setup.sh  # Existing install helper
+└── data/                        # All project data (portable)
     ├── username_schoolcode.env              # Environment variables
     ├── username_schoolcode-credentials.txt  # Login credentials
     └── [Docker volumes managed automatically]
 ```
 
-#### Custom Hostname Setup
+### Custom Hostname Setup
 
 To access your site via a custom domain:
 
@@ -271,79 +215,23 @@ To access your site via a custom domain:
 # 4. Makes site accessible at http://internal3.paperentry.ai:8080
 ```
 
-### Direct Docker Commands (Alternative)
-
-```bash
-# Check Status
-docker compose -p santosh-school_main ps
-
-# View Logs
-docker compose -p santosh-school_main logs -f backend
-
-# Stop Services
-docker compose -p santosh-school_main stop
-
-# Start Services
-docker compose -p santosh-school_main start
-
-# Restart Services
-docker compose -p santosh-school_main restart
-
-# Access Backend Shell
-python3 ./easy-install.py exec --project=school_main
-```
-
-## Upgrade
-
-To upgrade to a newer version:
-
-```bash
-python3 ./easy-install.py upgrade \
-    --project=my_school \
-    --version=v15
-```
-
 ## Backup & Restore
 
-### Manual Backup
+### Create Backup
 ```bash
-docker compose -p my_school exec backend \
-    bench --site school.yourdomain.com backup
+./manage.sh shell
+# Inside the container:
+bench --site school.localhost backup
 ```
 
-Backups are stored in the container and sync automatically every 6 hours.
+Backups are stored in the site directory and can be accessed from the host.
 
 ### Restore Backup
 ```bash
-docker compose -p my_school exec backend \
-    bench --site school.yourdomain.com restore /path/to/backup.sql.gz
+./manage.sh shell
+# Inside the container:
+bench --site school.localhost restore /path/to/backup.sql.gz
 ```
-
-## Multiple Schools
-
-You can run multiple independent school instances:
-
-```bash
-# School 1
-python3 ./easy-install.py deploy \
-    --project=school_abc \
-    --sitename=abc.school.com \
-    --email=admin@abc.com \
-    --app=education
-
-# School 2
-python3 ./easy-install.py deploy \
-    --project=school_xyz \
-    --sitename=xyz.school.com \
-    --email=admin@xyz.com \
-    --app=education
-```
-
-Each project gets its own:
-- Docker containers
-- Database
-- Configuration files
-- Password file (`~/project_name-passwords.txt`)
 
 ## Troubleshooting
 
@@ -406,36 +294,6 @@ vim .school.conf
 # Change BASE_PORT=8080 to BASE_PORT=8090
 ./manage.sh recreate
 ```
-
-## Manual Setup (Advanced)
-
-If you want to customize the academic setup, you can use the included `setup_school_data.py` script to generate a custom setup:
-
-```bash
-python3 setup_school_data.py > custom_setup.py
-# Edit custom_setup.py to your needs
-# Then run it in the container
-```
-
-## File Structure
-
-```
-erpnext-school/
-├── easy-install.py          # Main installation script
-├── manage.sh                # Easy management script (start/stop/logs)
-├── setup_school_data.py     # Helper for custom setups
-├── README.md                # This file
-└── frappe_docker/           # Auto-downloaded on first run
-```
-
-Your deployment files are stored in `~/`:
-```
-~/santosh-school_main-compose.yml   # Docker Compose configuration
-~/santosh-school_main.env           # Environment variables
-~/santosh-school_main-passwords.txt # Login credentials
-```
-
-**Note:** Project names are automatically prefixed with your username (e.g., `santosh-school_main`)
 
 ## System Requirements
 
