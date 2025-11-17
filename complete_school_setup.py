@@ -50,13 +50,13 @@ def setup_academic_terms():
 
     terms = [
         {
-            "academic_term_name": "First Term",
+            "term_name": "First Term",
             "term_start_date": "2024-04-01",
             "term_end_date": "2024-09-30",
             "academic_year": "2024-25"
         },
         {
-            "academic_term_name": "Second Term",
+            "term_name": "Second Term",
             "term_start_date": "2024-10-01",
             "term_end_date": "2025-03-31",
             "academic_year": "2024-25"
@@ -65,17 +65,17 @@ def setup_academic_terms():
 
     for term_data in terms:
         try:
-            if not frappe.db.exists("Academic Term", term_data["academic_term_name"]):
+            if not frappe.db.exists("Academic Term", term_data["term_name"]):
                 doc = frappe.get_doc({
                     "doctype": "Academic Term",
                     **term_data
                 })
-                doc.insert()
-                print(f"✓ Created: {term_data['academic_term_name']}")
+                doc.insert(ignore_permissions=True)
+                print(f"✓ Created: {term_data['term_name']}")
             else:
-                print(f"⊙ Already exists: {term_data['academic_term_name']}")
+                print(f"⊙ Already exists: {term_data['term_name']}")
         except Exception as e:
-            print(f"✗ Failed to create {term_data['academic_term_name']}: {e}")
+            print(f"✗ Failed to create {term_data['term_name']}: {e}")
 
     frappe.db.commit()
 
@@ -299,15 +299,33 @@ def setup_fee_structures():
     """Create CBSE-aligned fee structures"""
     print("\n=== Creating Fee Structures ===\n")
 
-    # Get default receivable account
-    receivable_account = frappe.db.get_value("Company", {"is_group": 0}, "default_receivable_account")
+    # Get the first company
+    company = frappe.db.get_value("Company", {"is_group": 0}, "name")
+    if not company:
+        company = frappe.db.get_value("Company", filters={}, fieldname="name")
+
+    if not company:
+        print("⚠ Warning: No company found, skipping fee structures")
+        return
+
+    # Get default receivable account for the company
+    receivable_account = frappe.db.get_value("Company", company, "default_receivable_account")
+
+    # If company doesn't have default, find any non-group receivable account for this company
+    if not receivable_account:
+        receivable_account = frappe.db.get_value("Account",
+            {"account_type": "Receivable", "is_group": 0, "company": company}, "name")
+
+    # Last resort: find any receivable account
     if not receivable_account:
         receivable_account = frappe.db.get_value("Account",
             {"account_type": "Receivable", "is_group": 0}, "name")
 
     if not receivable_account:
-        print("⚠ Warning: No receivable account found, skipping fee structures")
+        print(f"⚠ Warning: No receivable account found for company '{company}', skipping fee structures")
         return
+
+    print(f"  Using receivable account: {receivable_account} (Company: {company})")
 
     fee_structures = [
         # Pre-Primary
@@ -631,6 +649,65 @@ def hide_non_school_modules():
         print(f"✗ Error hiding modules: {e}")
 
 
+def setup_student_categories():
+    """Create student categories for classification"""
+    print("\n=== Creating Student Categories ===\n")
+
+    categories = [
+        {"category_name": "General", "description": "General category students"},
+        {"category_name": "SC", "description": "Scheduled Caste"},
+        {"category_name": "ST", "description": "Scheduled Tribe"},
+        {"category_name": "OBC", "description": "Other Backward Classes"},
+        {"category_name": "EWS", "description": "Economically Weaker Section"},
+    ]
+
+    for cat in categories:
+        try:
+            if not frappe.db.exists("Student Category", cat["category_name"]):
+                doc = frappe.get_doc({
+                    "doctype": "Student Category",
+                    **cat
+                })
+                doc.insert(ignore_permissions=True)
+                print(f"✓ Created: {cat['category_name']}")
+            else:
+                print(f"⊙ Already exists: {cat['category_name']}")
+        except Exception as e:
+            print(f"✗ Failed to create {cat['category_name']}: {e}")
+
+    frappe.db.commit()
+
+
+def create_instructors():
+    """Create instructor records for teachers"""
+    print("\n=== Creating Instructor Records ===\n")
+
+    instructors = [
+        {"first_name": "Priya", "last_name": "Sharma", "email": "teacher1@school.local", "department": "Science"},
+        {"first_name": "Amit", "last_name": "Singh", "email": "teacher2@school.local", "department": "Mathematics"},
+        {"first_name": "Sunita", "last_name": "Verma", "email": "teacher3@school.local", "department": "Languages"},
+    ]
+
+    for instr_data in instructors:
+        try:
+            instructor_name = f"{instr_data['first_name']} {instr_data['last_name']}"
+            if not frappe.db.exists("Instructor", instructor_name):
+                doc = frappe.get_doc({
+                    "doctype": "Instructor",
+                    "instructor_name": instructor_name,
+                    "email": instr_data["email"],
+                    "department": instr_data["department"],
+                })
+                doc.insert(ignore_permissions=True)
+                print(f"✓ Created Instructor: {instructor_name}")
+            else:
+                print(f"⊙ Already exists: {instructor_name}")
+        except Exception as e:
+            print(f"✗ Failed to create instructor {instructor_name}: {e}")
+
+    frappe.db.commit()
+
+
 def configure_education_settings():
     """Configure Education Settings for school"""
     print("\n=== Configuring Education Settings ===\n")
@@ -687,7 +764,9 @@ def main():
         setup_classrooms()
         setup_student_batches()
         setup_fee_structures()
+        setup_student_categories()  # Create student categories
         create_sample_users()
+        create_instructors()  # Create instructor records for teachers
         setup_genders()  # Create Gender master data before students
         create_sample_students()
         configure_education_settings()
@@ -707,12 +786,18 @@ def main():
         print("Teacher 3:   teacher3@school.local    / teacher123")
         print("Accountant:  accountant@school.local  / accounts123")
         print("-" * 70)
-        print("\n✓ 20 CBSE Programs (Playgroup to Class 12)")
+        print("\n✓ Academic Year & Terms configured")
+        print("✓ 20 CBSE Programs (Playgroup to Class 12)")
         print("✓ 19 CBSE Curriculum Courses")
         print("✓ 23 Classrooms created")
         print("✓ 20 Student Batches for 2024-25")
+        print("✓ 11 Fee Categories")
         print("✓ Fee Structures for all programs")
-        print("✓ 5 Sample Students with Guardians")
+        print("✓ 5 Student Categories (General, SC, ST, OBC, EWS)")
+        print("✓ 3 Genders (Male, Female, Other)")
+        print("✓ 3 Instructor records")
+        print("✓ 5 Sample Users (Principal, Teachers, Accountant)")
+        print("✓ 5 Sample Students with Guardians & Enrollments")
         print("✓ Non-school modules hidden")
         print("✓ Education Settings configured")
         print("\n" + "="*70 + "\n")
