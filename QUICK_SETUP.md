@@ -26,37 +26,41 @@ Open your browser and navigate to your ERPNext URL (e.g., `http://localhost:8080
 
 ## What Gets Created
 
-✅ **20 CBSE Programs**
-- Pre-Primary: Playgroup, Nursery, LKG, UKG
-- Primary: Class 1-5
-- Middle: Class 6-8
-- High School: Class 9-10
-- Senior Secondary: Class 11-12 (Science/Commerce/Arts)
+✅ **Academic Structure**
+- Academic Year: 2024-25
+- Academic Terms: First Term, Second Term
+- 20 CBSE Programs (Playgroup to Class 12)
+- 19 CBSE Courses (all subjects)
+- 23 Classrooms (including labs)
+- 20 Student Batches
 
-✅ **19 CBSE Courses**
-- English, Hindi, Mathematics, EVS
-- Science, Social Science, Sanskrit
-- Physics, Chemistry, Biology
-- Accountancy, Business Studies, Economics
-- History, Geography, Political Science, Psychology
-- Computer Science, Physical Education
+✅ **Fee Management**
+- 11 Fee Categories (Tuition, Admission, Transport, Lab, Library, Sports, Exam, Computer, Activity, Development, Books)
+- Fee Structures for all 20 programs (₹500-1200/month)
+- Receivable account auto-detection
 
-✅ **23 Classrooms**
-- One for each class level
-- Science Lab, Computer Lab, Library
+✅ **Master Data**
+- 5 Student Categories: General, SC (Scheduled Caste), ST (Scheduled Tribe), OBC (Other Backward Classes), EWS (Economically Weaker Section)
+- 3 Gender records: Male, Female, Other
 
-✅ **Fee Structures**
-- Pre-configured for all programs
-- Based on CBSE standards
+✅ **Users & Instructors**
+- 5 Sample Users with proper roles:
+  - 1 Principal (Education Manager, System Manager)
+  - 3 Teachers (Academics User, Instructor)
+  - 1 Accountant (Accounts User, Accounts Manager)
+- 3 Instructor records mapped to teachers for course management
 
 ✅ **Sample Data**
-- 5 Users (Principal, Teachers, Accountant)
-- 5 Students with Guardians
-- Ready for fee collection
+- 5 Students with complete profiles
+- 5 Guardians linked to students
+- Program Enrollments for all students
+- Ready for attendance, assessments, and fee collection
 
-✅ **Clean Interface**
-- Non-school modules hidden
-- Focus on Education & Accounting only
+✅ **System Configuration**
+- Non-school modules hidden via Desktop Icon blocking
+- Education Settings configured with current academic year
+- Attendance validation enabled
+- Clean, focused interface
 
 ## Quick Navigation
 

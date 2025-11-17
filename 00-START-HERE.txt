@@ -1,5 +1,6 @@
 ╔═══════════════════════════════════════════════════════════════╗
 ║         ERPNext School Setup - Quick Start Guide             ║
+║          Complete CBSE-Aligned School Management              ║
 ╚═══════════════════════════════════════════════════════════════╝
 
 📋 YOUR SITUATION:
@@ -14,6 +15,15 @@
   ./install-education-and-setup.sh
 
 ⏱️  TIME: 10-15 minutes (fresh) or 7-10 minutes (existing)
+
+✨ WHAT YOU GET:
+  • 20 CBSE Programs (Playgroup to Class 12)
+  • 19 Courses, 23 Classrooms, 20 Batches
+  • Academic Year & Terms, Fee Structures
+  • Student Categories (General, SC, ST, OBC, EWS)
+  • Gender Master Data, Instructor Records
+  • Sample Users, Students, Guardians
+  • Clean Interface (non-school modules hidden)
 
 📖 DOCUMENTATION:
   Read: README_SCHOOL_SETUP.md (start here!)

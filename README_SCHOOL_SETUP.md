@@ -27,13 +27,18 @@ If ERPNext is already installed:
 
 ## What This Does
 1. Installs Education App (https://github.com/frappe/education)
-2. Creates 20 CBSE Programs (Playgroup → Class 12)
-3. Creates 19 CBSE Courses
-4. Sets up 23 Classrooms
-5. Configures Fee Structures
-6. Creates 5 Sample Users
-7. Creates 5 Sample Students
-8. Hides non-school modules
+2. Creates Academic Year & Terms (2024-25)
+3. Creates 20 CBSE Programs (Playgroup → Class 12)
+4. Creates 19 CBSE Courses
+5. Sets up 23 Classrooms & 20 Student Batches
+6. Configures 11 Fee Categories & Fee Structures
+7. Creates Student Categories (General, SC, ST, OBC, EWS)
+8. Creates 3 Gender Master Data (Male, Female, Other)
+9. Creates 5 Sample Users with proper roles
+10. Creates 3 Instructor records for teachers
+11. Creates 5 Sample Students with Guardians & Enrollments
+12. Hides non-school modules via Desktop Icon blocking
+13. Configures Education Settings
 
 **Time**: 10-15 minutes (fresh) or 7-10 minutes (existing)
 
@@ -69,13 +74,32 @@ If ERPNext is already installed:
 
 ## What You Get
 
-- ✅ 20 CBSE Programs
-- ✅ 19 CBSE Courses  
-- ✅ 23 Classrooms
-- ✅ Fee Structures (₹500-1200/month)
-- ✅ 5 Sample Users
-- ✅ 5 Sample Students
+**Academic Structure:**
+- ✅ Academic Year & 2 Terms (2024-25)
+- ✅ 20 CBSE Programs (Pre-Primary to Class 12)
+- ✅ 19 CBSE Courses (all subjects)
+- ✅ 23 Classrooms (including labs)
+- ✅ 20 Student Batches
+
+**Fee Management:**
+- ✅ 11 Fee Categories (Tuition, Admission, Transport, etc.)
+- ✅ Fee Structures for all programs (₹500-1200/month)
+
+**Master Data:**
+- ✅ 5 Student Categories (General, SC, ST, OBC, EWS)
+- ✅ 3 Gender records (Male, Female, Other)
+
+**Users & Access:**
+- ✅ 5 Sample Users (Principal, 3 Teachers, Accountant)
+- ✅ 3 Instructor records for course management
+
+**Sample Data:**
+- ✅ 5 Sample Students with Guardians
+- ✅ Program Enrollments configured
+
+**Interface:**
 - ✅ Clean interface (non-school modules hidden)
+- ✅ Education Settings configured
 
 ## Quick Commands
 

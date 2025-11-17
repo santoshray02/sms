@@ -72,6 +72,10 @@
 - **`complete_school_setup.py`**
   - Python script that creates all school data
   - Used by install-education-and-setup.sh
+  - Creates: Academic Year/Terms, Programs, Courses, Classrooms,
+    Fee Structures, Student Categories, Genders, Instructors,
+    Sample Users, Students, Guardians, Enrollments
+  - Hides non-school modules, configures Education Settings
 
 - **`setup_school_data.py`**
   - Original setup helper (legacy)
@@ -79,7 +83,8 @@
 
 - **`.school.conf`**
   - Your school configuration
-  - Site name, ports, etc.
+  - Site name, ports, credentials, etc.
+  - Edit before installation
 
 - **`docker-compose.yml`**
   - Docker container configuration
