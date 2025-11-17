@@ -48,6 +48,20 @@ print("\\n" + "="*60)
 print("STUDENT IMPORT SCRIPT")
 print("="*60)
 
+# Ensure Gender master data exists
+print("\\nEnsuring Gender master data exists...")
+for gender_name in ["Male", "Female", "Other"]:
+    if not frappe.db.exists("Gender", gender_name):
+        gender = frappe.get_doc({{
+            "doctype": "Gender",
+            "gender": gender_name
+        }})
+        gender.insert(ignore_permissions=True)
+        print(f"  ✓ Created Gender: {{gender_name}}")
+    else:
+        print(f"  ⊙ Gender exists: {{gender_name}}")
+frappe.db.commit()
+
 students_data = {students_data}
 
 imported = 0

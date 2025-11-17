@@ -3,27 +3,31 @@
 ## 🚀 Scripts to Run
 
 ### Primary Script
-- **`install-education-and-setup.sh`** ⭐ **USE THIS**
-  - Installs Education app + creates all school data
-  - Use when starting fresh or Education app not installed
-  - Time: 7-10 minutes
+- **`./manage.sh install`** ⭐ **USE THIS FOR FRESH INSTALL**
+  - Complete one-command installation
+  - Installs ERPNext + Education app + all school data
+  - Uses `.school.conf` for configuration
+  - Time: 10-15 minutes
 
 ### Alternative Scripts
+- **`install-education-and-setup.sh`**
+  - For existing ERPNext installations only
+  - Installs Education app + creates school data
+  - Time: 7-10 minutes
+
 - **`setup-now.sh`**
-  - Creates school data only (skips Education app install)
+  - Data setup only (Education app must exist)
   - Use when Education app already installed
   - Time: 2-3 minutes
 
 - **`manage.sh`**
-  - Container management (start/stop/restart/logs/shell)
-  - Daily operations tool
-
-- **`easy-install.py`**
-  - Original deployment script (already used)
-  - For initial ERPNext installation
+  - Container management tool
+  - Commands: start, stop, restart, logs, shell, recreate, rebuild, reset
+  - Daily operations and advanced commands
 
 - **`import_students.py`**
   - Bulk student import from CSV
+  - Automatically ensures Gender master data exists
   - Use after setup to add many students at once
 
 ## 📚 Documentation (Pick One)
@@ -77,47 +81,41 @@
     Sample Users, Students, Guardians, Enrollments
   - Hides non-school modules, configures Education Settings
 
-- **`setup_school_data.py`**
-  - Original setup helper (legacy)
-  - Kept for reference
-
 - **`.school.conf`**
   - Your school configuration
   - Site name, ports, credentials, etc.
   - Edit before installation
 
 - **`docker-compose.yml`**
-  - Docker container configuration
+  - Docker container configuration (MariaDB 10.8)
 
 ## 📁 Directory Structure
 
 ```
 erpnext-school/
-├── install-education-and-setup.sh  ⭐ RUN THIS
-├── setup-now.sh                     (Alternative)
-├── manage.sh                        (Container management)
+├── manage.sh                        ⭐ PRIMARY TOOL
+├── .school.conf                     ⭐ CONFIGURATION
+├── install-education-and-setup.sh   (Existing installs)
+├── setup-now.sh                     (Data only)
 │
-├── README_SCHOOL_SETUP.md          ⭐ READ THIS
-├── SETUP.md                         (Detailed guide)
-├── SUMMARY.md                       (Overview)
-├── QUICK_SETUP.md                   (Quick reference)
+├── README.md                        ⭐ START HERE
+├── README_SCHOOL_SETUP.md           (Setup guide)
+├── QUICK_SETUP.md                   (Daily tasks)
 │
 ├── complete_school_setup.py         (Setup logic)
 ├── import_students.py               (Student import)
-├── easy-install.py                  (Initial install)
 │
-└── docs/
-    ├── SCHOOL_SETUP_GUIDE.md
-    ├── SAMPLE_USERS_GUIDE.md
-    ├── STUDENT_IMPORT_GUIDE.md
-    └── SSL_CUSTOM_PORT_GUIDE.md
+└── data/                            (All deployment data)
+    ├── env files
+    ├── credentials
+    └── docker volumes
 ```
 
 ## 🎯 Quick Decision Tree
 
 **Starting fresh?**
-→ Run `./install-education-and-setup.sh`
-→ Read `README_SCHOOL_SETUP.md`
+→ Run `./manage.sh install`
+→ Read `README.md`
 
 **Education app already installed?**
 → Run `./setup-now.sh`
@@ -134,20 +132,14 @@ erpnext-school/
 → Check `SETUP.md`
 → Or `SCHOOL_SETUP_GUIDE.md`
 
-## 🗑️ Can Be Removed (Optional)
-
-If you want to clean up, you can safely remove:
-- `GITHUB_README.md` (if not publishing to GitHub)
-- `setup_school_data.py` (legacy, superseded by complete_school_setup.py)
-
 ## 📝 Recommended Reading Order
 
-1. `README_SCHOOL_SETUP.md` - Start here
-2. Run `./install-education-and-setup.sh`
-3. `QUICK_SETUP.md` - After setup, for daily tasks
-4. `STUDENT_IMPORT_GUIDE.md` - When you need to add students
-5. `SETUP.md` - If you need troubleshooting
+1. **`README.md`** - Start here for complete overview
+2. Edit **`.school.conf`** with your settings
+3. Run **`./manage.sh install`**
+4. **`QUICK_SETUP.md`** - Daily operations reference
+5. **`STUDENT_IMPORT_GUIDE.md`** - When adding bulk students
 
 ---
 
-**TL;DR**: Run `./install-education-and-setup.sh` and read `README_SCHOOL_SETUP.md`
+**TL;DR**: Edit `.school.conf`, run `./manage.sh install`, read `README.md`

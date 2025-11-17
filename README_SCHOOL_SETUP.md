@@ -67,10 +67,9 @@ If ERPNext is already installed:
 - `QUICK_SETUP.md` - Daily tasks reference
 
 **Keep These:**
-- `complete_school_setup.py` - Setup script (used by above)
-- `manage.sh` - Container management
-- `easy-install.py` - Initial deployment
-- `import_students.py` - Bulk student import
+- `complete_school_setup.py` - Setup script (used by install scripts)
+- `manage.sh` - Container management and installation
+- `import_students.py` - Bulk student import (auto-creates Gender data)
 
 ## What You Get
 
