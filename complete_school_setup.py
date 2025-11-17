@@ -299,14 +299,42 @@ def setup_fee_structures():
     """Create CBSE-aligned fee structures"""
     print("\n=== Creating Fee Structures ===\n")
 
-    # Get the first company
-    company = frappe.db.get_value("Company", {"is_group": 0}, "name")
-    if not company:
-        company = frappe.db.get_value("Company", filters={}, fieldname="name")
+    # Get the first non-group company, or any company
+    company = None
+    try:
+        # Try to get non-group company first
+        companies = frappe.get_all("Company", filters={"is_group": 0}, fields=["name"], limit=1)
+        if companies:
+            company = companies[0].name
+        else:
+            # Get any company
+            companies = frappe.get_all("Company", fields=["name"], limit=1)
+            if companies:
+                company = companies[0].name
+    except Exception as e:
+        print(f"⚠ Warning: Error finding company: {e}")
 
+    # If no company exists, create a default one
     if not company:
-        print("⚠ Warning: No company found, skipping fee structures")
-        return
+        print("  No company found, creating default company...")
+        try:
+            company_doc = frappe.get_doc({
+                "doctype": "Company",
+                "company_name": "School",
+                "abbr": "SCH",
+                "default_currency": "INR",
+                "country": "India"
+            })
+            company_doc.insert(ignore_permissions=True)
+            frappe.db.commit()
+            company = company_doc.name
+            print(f"✓ Created company: {company}")
+        except Exception as e:
+            print(f"✗ Failed to create company: {e}")
+            print("⚠ Warning: Skipping fee structures")
+            return
+
+    print(f"  Using company: {company}")
 
     # Get default receivable account for the company
     receivable_account = frappe.db.get_value("Company", company, "default_receivable_account")
@@ -654,26 +682,26 @@ def setup_student_categories():
     print("\n=== Creating Student Categories ===\n")
 
     categories = [
-        {"category_name": "General", "description": "General category students"},
-        {"category_name": "SC", "description": "Scheduled Caste"},
-        {"category_name": "ST", "description": "Scheduled Tribe"},
-        {"category_name": "OBC", "description": "Other Backward Classes"},
-        {"category_name": "EWS", "description": "Economically Weaker Section"},
+        {"category": "General", "description": "General category students"},
+        {"category": "SC", "description": "Scheduled Caste"},
+        {"category": "ST", "description": "Scheduled Tribe"},
+        {"category": "OBC", "description": "Other Backward Classes"},
+        {"category": "EWS", "description": "Economically Weaker Section"},
     ]
 
     for cat in categories:
         try:
-            if not frappe.db.exists("Student Category", cat["category_name"]):
+            if not frappe.db.exists("Student Category", cat["category"]):
                 doc = frappe.get_doc({
                     "doctype": "Student Category",
                     **cat
                 })
                 doc.insert(ignore_permissions=True)
-                print(f"✓ Created: {cat['category_name']}")
+                print(f"✓ Created: {cat['category']}")
             else:
-                print(f"⊙ Already exists: {cat['category_name']}")
+                print(f"⊙ Already exists: {cat['category']}")
         except Exception as e:
-            print(f"✗ Failed to create {cat['category_name']}: {e}")
+            print(f"✗ Failed to create {cat['category']}: {e}")
 
     frappe.db.commit()
 
@@ -683,9 +711,9 @@ def create_instructors():
     print("\n=== Creating Instructor Records ===\n")
 
     instructors = [
-        {"first_name": "Priya", "last_name": "Sharma", "email": "teacher1@school.local", "department": "Science"},
-        {"first_name": "Amit", "last_name": "Singh", "email": "teacher2@school.local", "department": "Mathematics"},
-        {"first_name": "Sunita", "last_name": "Verma", "email": "teacher3@school.local", "department": "Languages"},
+        {"first_name": "Priya", "last_name": "Sharma", "email": "teacher1@school.local"},
+        {"first_name": "Amit", "last_name": "Singh", "email": "teacher2@school.local"},
+        {"first_name": "Sunita", "last_name": "Verma", "email": "teacher3@school.local"},
     ]
 
     for instr_data in instructors:
@@ -696,7 +724,6 @@ def create_instructors():
                     "doctype": "Instructor",
                     "instructor_name": instructor_name,
                     "email": instr_data["email"],
-                    "department": instr_data["department"],
                 })
                 doc.insert(ignore_permissions=True)
                 print(f"✓ Created Instructor: {instructor_name}")

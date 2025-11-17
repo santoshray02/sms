@@ -42,10 +42,10 @@
 ✅ CHECKLIST:
 
 Fresh Install:
-[ ] 1. Edit .school.conf (if needed)
+[ ] 1. Edit .school.conf (optional: set CUSTOM_DOMAIN)
 [ ] 2. Run: ./manage.sh install
 [ ] 3. Wait 10-15 minutes
-[ ] 4. Login at http://localhost:8080
+[ ] 4. Login at http://localhost:8080 or your custom domain
 [ ] 5. Change default passwords
 
 Existing Install:

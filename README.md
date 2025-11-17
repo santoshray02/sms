@@ -202,7 +202,23 @@ erpnext-school/
 
 ### Custom Hostname Setup
 
-To access your site via a custom domain:
+**Option 1: Configure during installation (Recommended)**
+
+Edit `.school.conf` before installation:
+
+```bash
+# Set your custom domain
+CUSTOM_DOMAIN="internal3.paperentry.ai"
+
+# Optional: Enable SSL (requires domain pointing to server)
+SSL_ENABLED=true
+SSL_EMAIL="admin@yourdomain.com"
+
+# Then install - domain (and SSL if enabled) will be configured automatically
+./manage.sh install
+```
+
+**Option 2: Set after installation**
 
 ```bash
 # After installation
@@ -214,6 +230,39 @@ To access your site via a custom domain:
 # 3. Restarts services
 # 4. Makes site accessible at http://internal3.paperentry.ai:8080
 ```
+
+### SSL/HTTPS Setup
+
+Frappe has built-in Let's Encrypt SSL support. To enable HTTPS:
+
+**Method 1: During installation (automatic)**
+
+Edit `.school.conf`:
+```bash
+CUSTOM_DOMAIN="school.yourdomain.com"
+SSL_ENABLED=true
+SSL_EMAIL="admin@yourdomain.com"
+```
+
+Then run `./manage.sh install` - SSL will be configured automatically!
+
+**Method 2: After installation (manual)**
+
+```bash
+# Edit .school.conf to set CUSTOM_DOMAIN and SSL_EMAIL
+./manage.sh setup-ssl
+```
+
+**Requirements for SSL:**
+- Custom domain must be set (not .localhost)
+- Domain must point to your server's public IP address
+- Ports 80 and 443 must be accessible from the internet
+- DNS propagation must be complete
+
+**Certificate Renewal:**
+- Frappe automatically renews certificates via cron job
+- Certificates are valid for 90 days
+- Renewal happens automatically before expiration
 
 ## Backup & Restore
 

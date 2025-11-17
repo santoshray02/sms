@@ -6,8 +6,18 @@ Your ERPNext installation is missing school-specific features.
 ## Solution
 
 ### Fresh Install (Recommended)
-One command does EVERYTHING from scratch:
 
+**Step 1:** Edit `.school.conf` (optional but recommended):
+```bash
+# Set custom domain if needed
+CUSTOM_DOMAIN="internal3.paperentry.ai"
+
+# Optional: Enable automatic SSL (requires domain pointing to server)
+SSL_ENABLED=true
+SSL_EMAIL="admin@yourdomain.com"
+```
+
+**Step 2:** Run one command that does EVERYTHING:
 ```bash
 ./manage.sh install
 ```
@@ -16,7 +26,7 @@ This will:
 - Create Docker containers
 - Install ERPNext + Education app
 - Create all school data
-- Configure everything
+- Configure everything (including custom domain and SSL if enabled)
 
 ### Existing Install
 If ERPNext is already installed:

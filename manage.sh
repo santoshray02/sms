@@ -305,6 +305,86 @@ set_hostname() {
     fi
 }
 
+# Function to setup SSL certificate
+setup_ssl() {
+    load_config "$CONFIG_FILE"
+
+    local project_name=$(get_project_name)
+    local env_file=$(get_env_file)
+
+    if [ ! -f "$env_file" ]; then
+        print_error "Environment file not found: ${env_file}"
+        print_info "Run 'install' command first to deploy the instance"
+        exit 1
+    fi
+
+    if [ -z "$CUSTOM_DOMAIN" ]; then
+        print_error "CUSTOM_DOMAIN not set in .school.conf"
+        print_info "Please set CUSTOM_DOMAIN before setting up SSL"
+        exit 1
+    fi
+
+    # Validate domain
+    if [[ "$CUSTOM_DOMAIN" =~ \.localhost$ ]]; then
+        print_error "SSL cannot be enabled for .localhost domains"
+        exit 1
+    fi
+
+    # Validate email
+    if [ -z "$SSL_EMAIL" ] || [ "$SSL_EMAIL" = "admin@localhost" ]; then
+        print_error "SSL_EMAIL must be set to a real email address"
+        print_info "Please update SSL_EMAIL in .school.conf"
+        exit 1
+    fi
+
+    print_info "Setting up SSL certificate for ${CUSTOM_DOMAIN}"
+    echo ""
+    print_warning "Requirements for SSL to work:"
+    print_warning "  ✓ Domain ${CUSTOM_DOMAIN} must point to this server's public IP"
+    print_warning "  ✓ Ports 80 and 443 must be accessible from the internet"
+    print_warning "  ✓ DNS propagation must be complete"
+    echo ""
+    read -p "Have you verified the above requirements? (yes/no): " confirm
+
+    if [ "$confirm" != "yes" ]; then
+        print_info "SSL setup cancelled"
+        exit 0
+    fi
+
+    print_info "Obtaining SSL certificate from Let's Encrypt..."
+    docker compose -p "$project_name" --env-file "$env_file" exec -T backend \
+        sudo -H bench setup lets-encrypt "${SITE_NAME}" --custom-domain "${CUSTOM_DOMAIN}"
+
+    if [ $? -eq 0 ]; then
+        print_success "SSL certificate obtained and configured successfully"
+        echo ""
+        print_info "Updating site configuration..."
+
+        # Update host_name to use https
+        docker compose -p "$project_name" --env_file "$env_file" exec -T backend \
+            bench --site "${SITE_NAME}" set-config host_name "https://${CUSTOM_DOMAIN}"
+
+        print_info "Restarting services..."
+        docker compose -p "$project_name" --env-file "$env_file" restart frontend websocket backend
+
+        echo ""
+        print_success "SSL setup complete!"
+        print_success "Site can now be accessed at: https://${CUSTOM_DOMAIN}"
+        print_info "Certificate will auto-renew before expiration"
+    else
+        print_error "SSL setup failed"
+        echo ""
+        print_info "Common issues:"
+        print_info "  - Domain not pointing to this server"
+        print_info "  - Ports 80/443 not accessible from internet"
+        print_info "  - Firewall blocking access"
+        print_info "  - DNS not propagated yet (can take up to 48 hours)"
+        echo ""
+        print_info "After fixing the issue, try again with: ./manage.sh setup-ssl"
+        exit 1
+    fi
+}
+
 # Function to generate passwords
 generate_password() {
     openssl rand -hex 12
@@ -489,6 +569,77 @@ EOF
         print_info "You can run it manually later: ./install-education-and-setup.sh"
     fi
 
+    # Configure custom domain if set
+    if [ -n "$CUSTOM_DOMAIN" ]; then
+        echo ""
+        print_info "Configuring custom domain: ${CUSTOM_DOMAIN}"
+
+        local protocol="http"
+        local port_suffix=":${BASE_PORT}"
+
+        # Determine protocol and port based on SSL settings
+        if [ "$SSL_ENABLED" = "true" ]; then
+            protocol="https"
+            # Standard HTTPS port (443) doesn't need to be shown in URL
+            if [ "${BASE_PORT}" = "443" ] || [ "${HTTPS_PORT}" = "443" ]; then
+                port_suffix=""
+            else
+                port_suffix=":${HTTPS_PORT:-${BASE_PORT}}"
+            fi
+        fi
+
+        # Set host_name in site config
+        docker compose -p "$project_name" --env-file "$env_file" exec -T backend \
+            bench --site "${SITE_NAME}" set-config host_name "${protocol}://${CUSTOM_DOMAIN}${port_suffix}"
+
+        # Create symlink for hostname routing
+        docker compose -p "$project_name" --env-file "$env_file" exec -T backend \
+            bash -c "cd sites && ln -sf '${SITE_NAME}' '${CUSTOM_DOMAIN}'"
+
+        if [ $? -eq 0 ]; then
+            print_success "Custom domain configured successfully"
+
+            # Setup SSL if enabled
+            if [ "$SSL_ENABLED" = "true" ]; then
+                print_info "Setting up SSL certificate for ${CUSTOM_DOMAIN}..."
+
+                # Validate requirements
+                if [[ "$CUSTOM_DOMAIN" =~ \.localhost$ ]]; then
+                    print_warning "SSL cannot be enabled for .localhost domains"
+                    print_info "Skipping SSL setup..."
+                elif [ -z "$SSL_EMAIL" ] || [ "$SSL_EMAIL" = "admin@localhost" ]; then
+                    print_warning "SSL_EMAIL must be set to a real email address for SSL"
+                    print_info "Please update .school.conf with a valid SSL_EMAIL"
+                    print_info "Then run: ./manage.sh setup-ssl"
+                else
+                    # Use Frappe's built-in SSL setup
+                    print_info "Obtaining SSL certificate from Let's Encrypt..."
+                    print_warning "Note: This requires DNS to be properly configured and accessible from the internet"
+                    docker compose -p "$project_name" --env-file "$env_file" exec -T backend \
+                        sudo -H bench setup lets-encrypt "${SITE_NAME}" --custom-domain "${CUSTOM_DOMAIN}"
+
+                    if [ $? -eq 0 ]; then
+                        print_success "SSL certificate obtained and configured"
+                        print_info "Certificate will auto-renew before expiration"
+                    else
+                        print_warning "SSL setup failed. Common issues:"
+                        print_warning "  - Domain must point to this server's public IP"
+                        print_warning "  - Ports 80 and 443 must be accessible from internet"
+                        print_warning "  - DNS propagation may take time"
+                        print_info "You can retry later with: ./manage.sh setup-ssl"
+                    fi
+                fi
+            fi
+
+            # Restart services to apply changes
+            print_info "Restarting services..."
+            docker compose -p "$project_name" --env-file "$env_file" restart frontend websocket backend
+            print_success "Services restarted"
+        else
+            print_warning "Failed to configure custom domain (you can set it later with: ./manage.sh set-hostname ${CUSTOM_DOMAIN})"
+        fi
+    fi
+
     # Show summary
     echo ""
     echo "========================================"
@@ -497,6 +648,13 @@ EOF
     echo ""
     print_info "Access your site:"
     echo "  URL: http://localhost:${BASE_PORT}"
+    if [ -n "$CUSTOM_DOMAIN" ]; then
+        if [ "$SSL_ENABLED" = "true" ]; then
+            echo "  Custom Domain: https://${CUSTOM_DOMAIN}"
+        else
+            echo "  Custom Domain: http://${CUSTOM_DOMAIN}:${BASE_PORT}"
+        fi
+    fi
     if [ -n "$HTTPS_PORT" ]; then
         echo "  HTTPS: https://localhost:${HTTPS_PORT}"
     fi
@@ -671,6 +829,7 @@ ${GREEN}Commands:${NC}
   ${YELLOW}rebuild${NC}           Pull new images and recreate containers (keeps data)
   ${YELLOW}reset${NC}             Delete everything and start fresh (requires confirmation)
   ${YELLOW}set-hostname${NC}      Set the hostname for the site (e.g., set-hostname internal3.paperentry.ai)
+  ${YELLOW}setup-ssl${NC}         Setup Let's Encrypt SSL certificate for custom domain
   ${YELLOW}status${NC}            Show detailed container status
   ${YELLOW}logs${NC}              Show and follow logs
   ${YELLOW}shell${NC}             Access backend shell
@@ -708,6 +867,9 @@ ${GREEN}Examples:${NC}
 
   # Set custom hostname for external access
   $0 set-hostname internal3.paperentry.ai
+
+  # Setup SSL certificate (requires CUSTOM_DOMAIN and SSL_EMAIL in config)
+  $0 setup-ssl
 
   # Use specific config file for multiple schools
   CONFIG_FILE=.school-main.conf $0 start
@@ -765,6 +927,9 @@ case "${1:-help}" in
         ;;
     set-hostname)
         set_hostname "$2"
+        ;;
+    setup-ssl)
+        setup_ssl
         ;;
     status|ps)
         status_project
