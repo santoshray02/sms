@@ -35,6 +35,13 @@ If ERPNext is already installed:
 ./install-education-and-setup.sh
 ```
 
+### Fee Structures Only
+If you completed Setup Wizard but need to create fee structures:
+
+```bash
+./setup-fee-structures.sh
+```
+
 ## What This Does
 1. Installs Education App (https://github.com/frappe/education)
 2. Creates Academic Year & Terms (2024-25)
@@ -70,6 +77,7 @@ If ERPNext is already installed:
 - `./manage.sh install` - Fresh install (does EVERYTHING automatically)
 - `install-education-and-setup.sh` - Existing install (Education + data)
 - `setup-now.sh` - Data setup only (if Education already installed)
+- `setup-fee-structures.sh` - Fee structures only (after Setup Wizard)
 
 **Documentation:**
 - `SETUP.md` - Detailed guide

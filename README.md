@@ -78,6 +78,18 @@ After ERPNext installation, you need to:
 
 **📖 See [SETUP.md](SETUP.md) for complete guide**
 
+### ⚠️ Fee Structures Setup
+
+If you run the setup script on a fresh installation, fee structures will be skipped until you complete the ERPNext Setup Wizard (which creates the company).
+
+**After completing Setup Wizard, run:**
+
+```bash
+./setup-fee-structures.sh
+```
+
+This creates fee structures for all 20 CBSE programs (₹500-1200/month).
+
 ### What You'll Get:
 
 ### 📚 Academic Structure
