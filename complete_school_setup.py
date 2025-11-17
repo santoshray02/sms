@@ -314,25 +314,14 @@ def setup_fee_structures():
     except Exception as e:
         print(f"⚠ Warning: Error finding company: {e}")
 
-    # If no company exists, create a default one
+    # If no company exists, skip fee structures (requires Setup Wizard)
     if not company:
-        print("  No company found, creating default company...")
-        try:
-            company_doc = frappe.get_doc({
-                "doctype": "Company",
-                "company_name": "School",
-                "abbr": "SCH",
-                "default_currency": "INR",
-                "country": "India"
-            })
-            company_doc.insert(ignore_permissions=True)
-            frappe.db.commit()
-            company = company_doc.name
-            print(f"✓ Created company: {company}")
-        except Exception as e:
-            print(f"✗ Failed to create company: {e}")
-            print("⚠ Warning: Skipping fee structures")
-            return
+        print("⚠ Warning: No company found")
+        print("  Fee Structures require a company to be created first.")
+        print("  Please complete the ERPNext Setup Wizard or create a company manually.")
+        print("  After creating a company, you can run this script again to create fee structures.")
+        print("  Skipping fee structures for now...")
+        return
 
     print(f"  Using company: {company}")
 
