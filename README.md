@@ -77,36 +77,46 @@ After ERPNext installation, you need to:
 
 ### What You'll Get:
 
-### 📚 Academic Data
-- **20 CBSE Programs:** Playgroup, Nursery, LKG, UKG, Class 1-10, Class 11-12 (Science/Commerce/Arts)
-- **19 CBSE Curriculum Courses:** Subject-wise courses aligned with CBSE
+### 📚 Academic Structure
+- **Academic Year 2024-25** with complete configuration
 - **2 Academic Terms:** First Term (Apr-Sep), Second Term (Oct-Mar)
+- **20 CBSE Programs:** Playgroup, Nursery, LKG, UKG, Class 1-10, Class 11-12 (Science/Commerce/Arts streams)
+- **19 CBSE Curriculum Courses:** English, Hindi, Mathematics, Science, Social Science, Physics, Chemistry, Biology, Accountancy, Business Studies, Economics, History, Geography, Political Science, Psychology, Computer Science, Physical Education, Sanskrit, EVS
+- **23 Classrooms:** Including Science Lab, Computer Lab, Library
+- **20 Student Batches:** One for each program (2024-25)
+
+### 💰 Fee Management
 - **11 Fee Categories:** Tuition, Admission, Transport, Lab, Library, Sports, Exam, Computer, Activity, Development, Books
-- **Academic Year 2024-25** with all configurations
+- **Fee Structures (Monthly Tuition):**
+  - Pre-Primary (Playgroup-UKG): ₹500-600
+  - Primary (Class 1-5): ₹650-750
+  - Middle School (Class 6-8): ₹750-900
+  - High School (Class 9-10): ₹1,000-1,100
+  - Senior Secondary (Class 11-12): ₹900-1,200 (varies by stream)
+- **Automatic Receivable Account Detection**
 
-### 🏫 Infrastructure
-- **23 Classrooms** with seating capacity
-- **Special Rooms:** Science Lab, Computer Lab, Library
-- **20 Student Batches** for 2024-25 academic year
+### 🎓 Master Data
+- **5 Student Categories:** General, SC (Scheduled Caste), ST (Scheduled Tribe), OBC (Other Backward Classes), EWS (Economically Weaker Section)
+- **3 Gender Records:** Male, Female, Other
 
-### 💰 Fee Structures (CBSE-Aligned)
-**Tuition Fees (Monthly):**
-- Pre-Primary (Playgroup-UKG): ₹500-600
-- Primary (Class 1-5): ₹650-750
-- Middle School (Class 6-8): ₹750-900
-- High School (Class 9-10): ₹1,000-1,100
-- Senior Secondary (Class 11-12): ₹900-1,200 (varies by stream)
+### 👥 Users & Access
+- **5 Sample Users with Proper Roles:**
+  - **Principal:** principal@school.local / principal123 (Education Manager, System Manager)
+  - **Teachers (3):** teacher1/2/3@school.local / teacher123 (Academics User, Instructor)
+  - **Accountant:** accountant@school.local / accounts123 (Accounts User, Accounts Manager)
+- **3 Instructor Records:** Mapped to teachers for course assignments and scheduling
 
-### 👥 Sample Users (Ready to Login)
-- **Principal:** principal@school.local / principal123 (Full System Access)
-- **Teachers (3):** teacher1/2/3@school.local / teacher123 (Academic Access)
-- **Accountant:** accountant@school.local / accounts123 (Fee Management)
-- **5 Sample Students** with Guardian information (enrolled in various classes)
+### 👨‍👩‍👧‍👦 Sample Data
+- **5 Sample Students:** Complete profiles with enrollment information
+- **5 Guardians:** Linked to students with contact details
+- **Program Enrollments:** All students enrolled in their respective programs
+- **Ready for:** Attendance tracking, assessments, fee collection
 
-### ⚙️ Module Configuration
-- **Enabled:** Education, Accounting, Setup
-- **Hidden:** Manufacturing, Buying, Selling, Stock, HR, CRM, Projects, Support, Healthcare, etc.
-- Clean, focused interface for school management only!
+### ⚙️ System Configuration
+- **Enabled Modules:** Education, Accounting, Setup
+- **Hidden Modules:** Manufacturing, Buying, Selling, Stock, HR, CRM, Projects, Support, Healthcare, Payroll, Assets, Quality Management, Maintenance (via Desktop Icon blocking)
+- **Education Settings:** Configured with current academic year, attendance validation enabled
+- **Clean Interface:** Focused on school management only!
 
 **📖 For detailed setup instructions and troubleshooting, see:** [SCHOOL_SETUP_GUIDE.md](SCHOOL_SETUP_GUIDE.md)
 
