@@ -840,124 +840,111 @@ setup_fee_structures() {
     print_info "Creating fee structures for all CBSE programs..."
     echo ""
 
-    # Create inline Python script for fee structures
-    docker exec -i "$backend_container" bash -c "cat > /tmp/setup_fee_structures.py" << 'EOFPYTHON'
+    # Execute Python code directly via bench console
+    docker exec -i "$backend_container" bench --site "${SITE_NAME}" console << 'EOFPYTHON'
 import frappe
 
-def setup_fee_structures():
-    """Create fee structures for all CBSE programs"""
+# Check if company exists
+companies = frappe.get_all("Company", filters={"is_group": 0}, fields=["name"], limit=1)
 
-    # Check if company exists
-    companies = frappe.get_all("Company", filters={"is_group": 0}, fields=["name"], limit=1)
-
-    if not companies:
-        print("❌ Error: No company found")
-        print("")
-        print("Fee Structures require a company to be created first.")
-        print("Please complete the ERPNext Setup Wizard:")
-        print("  1. Login as Administrator")
-        print("  2. Go to Setup > Setup Wizard")
-        print("  3. Complete all steps to create your company")
-        print("")
-        print("After completing Setup Wizard, run this command again:")
-        print("  ./manage.sh setup-fees")
-        return False
-
-    company = companies[0].name
-    print(f"✓ Found company: {company}")
-
-    # Get receivable account
-    receivable_account = frappe.db.get_value("Company", company, "default_receivable_account")
-
-    if not receivable_account:
-        print(f"❌ Error: No default receivable account found for company {company}")
-        print("Please set up the company's default receivable account in Company settings")
-        return False
-
-    print(f"✓ Using receivable account: {receivable_account}")
+if not companies:
+    print("❌ Error: No company found")
     print("")
-
-    # Fee structures for all 20 CBSE programs
-    fee_structures = [
-        {"program": "Playgroup", "monthly_fee": 500},
-        {"program": "Nursery", "monthly_fee": 550},
-        {"program": "LKG", "monthly_fee": 600},
-        {"program": "UKG", "monthly_fee": 650},
-        {"program": "Class 1", "monthly_fee": 700},
-        {"program": "Class 2", "monthly_fee": 750},
-        {"program": "Class 3", "monthly_fee": 800},
-        {"program": "Class 4", "monthly_fee": 850},
-        {"program": "Class 5", "monthly_fee": 900},
-        {"program": "Class 6", "monthly_fee": 950},
-        {"program": "Class 7", "monthly_fee": 1000},
-        {"program": "Class 8", "monthly_fee": 1050},
-        {"program": "Class 9", "monthly_fee": 1100},
-        {"program": "Class 10", "monthly_fee": 1150},
-        {"program": "Class 11 Science", "monthly_fee": 1200},
-        {"program": "Class 11 Commerce", "monthly_fee": 1200},
-        {"program": "Class 11 Arts", "monthly_fee": 1200},
-        {"program": "Class 12 Science", "monthly_fee": 1200},
-        {"program": "Class 12 Commerce", "monthly_fee": 1200},
-        {"program": "Class 12 Arts", "monthly_fee": 1200},
-    ]
-
-    created_count = 0
-    skipped_count = 0
-
-    for item in fee_structures:
-        program_name = item["program"]
-        monthly_fee = item["monthly_fee"]
-
-        # Check if program exists
-        if not frappe.db.exists("Program", program_name):
-            print(f"⚠ Skipping {program_name}: Program not found")
-            skipped_count += 1
-            continue
-
-        # Check if fee structure already exists
-        fee_structure_name = f"{program_name} - Standard Fee Structure"
-        if frappe.db.exists("Fee Structure", fee_structure_name):
-            print(f"⊙ {program_name}: Fee structure already exists")
-            skipped_count += 1
-            continue
-
-        try:
-            # Create fee structure
-            fee_structure = frappe.get_doc({
-                "doctype": "Fee Structure",
-                "fee_structure_name": fee_structure_name,
-                "program": program_name,
-                "receivable_account": receivable_account,
-                "company": company,
-                "components": [
-                    {
-                        "fees_category": "Tuition Fee",
-                        "amount": monthly_fee
-                    }
-                ]
-            })
-            fee_structure.insert(ignore_permissions=True)
-            frappe.db.commit()
-
-            print(f"✓ Created fee structure for {program_name}: ₹{monthly_fee}/month")
-            created_count += 1
-
-        except Exception as e:
-            print(f"✗ Failed to create fee structure for {program_name}: {str(e)}")
-
+    print("Fee Structures require a company to be created first.")
+    print("Please complete the ERPNext Setup Wizard:")
+    print("  1. Login as Administrator")
+    print("  2. Go to Setup > Setup Wizard")
+    print("  3. Complete all steps to create your company")
     print("")
-    print(f"Summary: {created_count} created, {skipped_count} skipped")
-    return True
+    print("After completing Setup Wizard, run this command again:")
+    print("  ./manage.sh setup-fees")
+    exit()
 
-if __name__ == "__main__":
-    frappe.init(site="site1.localhost")
-    frappe.connect()
-    setup_fee_structures()
-    frappe.destroy()
+company = companies[0].name
+print(f"✓ Found company: {company}")
+
+# Get receivable account
+receivable_account = frappe.db.get_value("Company", company, "default_receivable_account")
+
+if not receivable_account:
+    print(f"❌ Error: No default receivable account found for company {company}")
+    print("Please set up the company's default receivable account in Company settings")
+    exit()
+
+print(f"✓ Using receivable account: {receivable_account}")
+print("")
+
+# Fee structures for all 20 CBSE programs
+fee_structures = [
+    {"program": "Playgroup", "monthly_fee": 500},
+    {"program": "Nursery", "monthly_fee": 550},
+    {"program": "LKG", "monthly_fee": 600},
+    {"program": "UKG", "monthly_fee": 650},
+    {"program": "Class 1", "monthly_fee": 700},
+    {"program": "Class 2", "monthly_fee": 750},
+    {"program": "Class 3", "monthly_fee": 800},
+    {"program": "Class 4", "monthly_fee": 850},
+    {"program": "Class 5", "monthly_fee": 900},
+    {"program": "Class 6", "monthly_fee": 950},
+    {"program": "Class 7", "monthly_fee": 1000},
+    {"program": "Class 8", "monthly_fee": 1050},
+    {"program": "Class 9", "monthly_fee": 1100},
+    {"program": "Class 10", "monthly_fee": 1150},
+    {"program": "Class 11 Science", "monthly_fee": 1200},
+    {"program": "Class 11 Commerce", "monthly_fee": 1200},
+    {"program": "Class 11 Arts", "monthly_fee": 1200},
+    {"program": "Class 12 Science", "monthly_fee": 1200},
+    {"program": "Class 12 Commerce", "monthly_fee": 1200},
+    {"program": "Class 12 Arts", "monthly_fee": 1200},
+]
+
+created_count = 0
+skipped_count = 0
+
+for item in fee_structures:
+    program_name = item["program"]
+    monthly_fee = item["monthly_fee"]
+
+    # Check if program exists
+    if not frappe.db.exists("Program", program_name):
+        print(f"⚠ Skipping {program_name}: Program not found")
+        skipped_count += 1
+        continue
+
+    # Check if fee structure already exists
+    fee_structure_name = f"{program_name} - Standard Fee Structure"
+    if frappe.db.exists("Fee Structure", fee_structure_name):
+        print(f"⊙ {program_name}: Fee structure already exists")
+        skipped_count += 1
+        continue
+
+    try:
+        # Create fee structure
+        fee_structure = frappe.get_doc({
+            "doctype": "Fee Structure",
+            "fee_structure_name": fee_structure_name,
+            "program": program_name,
+            "receivable_account": receivable_account,
+            "company": company,
+            "components": [
+                {
+                    "fees_category": "Tuition Fee",
+                    "amount": monthly_fee
+                }
+            ]
+        })
+        fee_structure.insert(ignore_permissions=True)
+        frappe.db.commit()
+
+        print(f"✓ Created fee structure for {program_name}: ₹{monthly_fee}/month")
+        created_count += 1
+
+    except Exception as e:
+        print(f"✗ Failed to create fee structure for {program_name}: {str(e)}")
+
+print("")
+print(f"Summary: {created_count} created, {skipped_count} skipped")
 EOFPYTHON
-
-    # Execute the Python script
-    docker exec -i "$backend_container" bench --site "${SITE_NAME}" execute frappe.commands.utils.execute_in_shell /tmp/setup_fee_structures.py
 
     if [ $? -eq 0 ]; then
         echo ""
