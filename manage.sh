@@ -877,12 +877,12 @@ def setup_fee_structures():
     print(f"✓ Using receivable account: {receivable_account}")
     print("")
 
-    # Fee structures for all 20 CBSE programs
+    # Fee structures for all 20 CBSE programs (matching complete_school_setup.py names)
     fee_structures = [
         {"program": "Playgroup", "monthly_fee": 500},
         {"program": "Nursery", "monthly_fee": 550},
-        {"program": "LKG", "monthly_fee": 600},
-        {"program": "UKG", "monthly_fee": 650},
+        {"program": "Lower Kindergarten (LKG)", "monthly_fee": 600},
+        {"program": "Upper Kindergarten (UKG)", "monthly_fee": 650},
         {"program": "Class 1", "monthly_fee": 700},
         {"program": "Class 2", "monthly_fee": 750},
         {"program": "Class 3", "monthly_fee": 800},
@@ -893,12 +893,12 @@ def setup_fee_structures():
         {"program": "Class 8", "monthly_fee": 1050},
         {"program": "Class 9", "monthly_fee": 1100},
         {"program": "Class 10", "monthly_fee": 1150},
-        {"program": "Class 11 Science", "monthly_fee": 1200},
-        {"program": "Class 11 Commerce", "monthly_fee": 1200},
-        {"program": "Class 11 Arts", "monthly_fee": 1200},
-        {"program": "Class 12 Science", "monthly_fee": 1200},
-        {"program": "Class 12 Commerce", "monthly_fee": 1200},
-        {"program": "Class 12 Arts", "monthly_fee": 1200},
+        {"program": "Class 11 - Science Stream", "monthly_fee": 1200},
+        {"program": "Class 11 - Commerce Stream", "monthly_fee": 1200},
+        {"program": "Class 11 - Arts Stream", "monthly_fee": 1200},
+        {"program": "Class 12 - Science Stream", "monthly_fee": 1200},
+        {"program": "Class 12 - Commerce Stream", "monthly_fee": 1200},
+        {"program": "Class 12 - Arts Stream", "monthly_fee": 1200},
     ]
 
     created_count = 0
