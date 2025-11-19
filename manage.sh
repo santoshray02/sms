@@ -682,7 +682,7 @@ EOF
     echo ""
     print_warning "⚠️  Fee Structures Setup Required:"
     echo "  1. Complete ERPNext Setup Wizard (creates company)"
-    echo "  2. Run: ./setup-fee-structures.sh"
+    echo "  2. Run: ./manage.sh setup-fees"
     echo ""
     print_info "Management commands:"
     echo "  ./manage.sh status  - Check status"
@@ -813,6 +813,162 @@ reset_project() {
     print_info "You can now run './manage.sh install' to create a fresh installation"
 }
 
+# Function to setup fee structures
+setup_fee_structures() {
+    load_config "$CONFIG_FILE"
+
+    local project_name=$(get_project_name)
+    local env_file=$(get_env_file)
+
+    print_info "Setting up fee structures for: ${SCHOOL_CODE}"
+
+    if [ ! -f "$env_file" ]; then
+        print_error "Environment file not found: ${env_file}"
+        print_info "Run 'install' command first to deploy the instance"
+        exit 1
+    fi
+
+    # Find backend container
+    local backend_container=$(docker ps --filter "name=${project_name}.*backend" --format "{{.Names}}" | head -1)
+
+    if [ -z "$backend_container" ]; then
+        print_error "Backend container not found. Is the instance running?"
+        print_info "Run './manage.sh status' to check container status"
+        exit 1
+    fi
+
+    print_info "Creating fee structures for all CBSE programs..."
+    echo ""
+
+    # Create inline Python script for fee structures
+    docker exec -i "$backend_container" bash -c "cat > /tmp/setup_fee_structures.py" << 'EOFPYTHON'
+import frappe
+
+def setup_fee_structures():
+    """Create fee structures for all CBSE programs"""
+
+    # Check if company exists
+    companies = frappe.get_all("Company", filters={"is_group": 0}, fields=["name"], limit=1)
+
+    if not companies:
+        print("❌ Error: No company found")
+        print("")
+        print("Fee Structures require a company to be created first.")
+        print("Please complete the ERPNext Setup Wizard:")
+        print("  1. Login as Administrator")
+        print("  2. Go to Setup > Setup Wizard")
+        print("  3. Complete all steps to create your company")
+        print("")
+        print("After completing Setup Wizard, run this command again:")
+        print("  ./manage.sh setup-fees")
+        return False
+
+    company = companies[0].name
+    print(f"✓ Found company: {company}")
+
+    # Get receivable account
+    receivable_account = frappe.db.get_value("Company", company, "default_receivable_account")
+
+    if not receivable_account:
+        print(f"❌ Error: No default receivable account found for company {company}")
+        print("Please set up the company's default receivable account in Company settings")
+        return False
+
+    print(f"✓ Using receivable account: {receivable_account}")
+    print("")
+
+    # Fee structures for all 20 CBSE programs
+    fee_structures = [
+        {"program": "Playgroup", "monthly_fee": 500},
+        {"program": "Nursery", "monthly_fee": 550},
+        {"program": "LKG", "monthly_fee": 600},
+        {"program": "UKG", "monthly_fee": 650},
+        {"program": "Class 1", "monthly_fee": 700},
+        {"program": "Class 2", "monthly_fee": 750},
+        {"program": "Class 3", "monthly_fee": 800},
+        {"program": "Class 4", "monthly_fee": 850},
+        {"program": "Class 5", "monthly_fee": 900},
+        {"program": "Class 6", "monthly_fee": 950},
+        {"program": "Class 7", "monthly_fee": 1000},
+        {"program": "Class 8", "monthly_fee": 1050},
+        {"program": "Class 9", "monthly_fee": 1100},
+        {"program": "Class 10", "monthly_fee": 1150},
+        {"program": "Class 11 Science", "monthly_fee": 1200},
+        {"program": "Class 11 Commerce", "monthly_fee": 1200},
+        {"program": "Class 11 Arts", "monthly_fee": 1200},
+        {"program": "Class 12 Science", "monthly_fee": 1200},
+        {"program": "Class 12 Commerce", "monthly_fee": 1200},
+        {"program": "Class 12 Arts", "monthly_fee": 1200},
+    ]
+
+    created_count = 0
+    skipped_count = 0
+
+    for item in fee_structures:
+        program_name = item["program"]
+        monthly_fee = item["monthly_fee"]
+
+        # Check if program exists
+        if not frappe.db.exists("Program", program_name):
+            print(f"⚠ Skipping {program_name}: Program not found")
+            skipped_count += 1
+            continue
+
+        # Check if fee structure already exists
+        fee_structure_name = f"{program_name} - Standard Fee Structure"
+        if frappe.db.exists("Fee Structure", fee_structure_name):
+            print(f"⊙ {program_name}: Fee structure already exists")
+            skipped_count += 1
+            continue
+
+        try:
+            # Create fee structure
+            fee_structure = frappe.get_doc({
+                "doctype": "Fee Structure",
+                "fee_structure_name": fee_structure_name,
+                "program": program_name,
+                "receivable_account": receivable_account,
+                "company": company,
+                "components": [
+                    {
+                        "fees_category": "Tuition Fee",
+                        "amount": monthly_fee
+                    }
+                ]
+            })
+            fee_structure.insert(ignore_permissions=True)
+            frappe.db.commit()
+
+            print(f"✓ Created fee structure for {program_name}: ₹{monthly_fee}/month")
+            created_count += 1
+
+        except Exception as e:
+            print(f"✗ Failed to create fee structure for {program_name}: {str(e)}")
+
+    print("")
+    print(f"Summary: {created_count} created, {skipped_count} skipped")
+    return True
+
+if __name__ == "__main__":
+    frappe.init(site="site1.localhost")
+    frappe.connect()
+    setup_fee_structures()
+    frappe.destroy()
+EOFPYTHON
+
+    # Execute the Python script
+    docker exec -i "$backend_container" bench --site "${SITE_NAME}" execute frappe.commands.utils.execute_in_shell /tmp/setup_fee_structures.py
+
+    if [ $? -eq 0 ]; then
+        echo ""
+        print_success "Fee structures setup completed"
+    else
+        echo ""
+        print_error "Fee structures setup encountered errors"
+        exit 1
+    fi
+}
+
 # Function to show help
 show_help() {
     cat << EOF
@@ -833,6 +989,7 @@ ${GREEN}Commands:${NC}
   ${YELLOW}reset${NC}             Delete everything and start fresh (requires confirmation)
   ${YELLOW}set-hostname${NC}      Set the hostname for the site (e.g., set-hostname internal3.paperentry.ai)
   ${YELLOW}setup-ssl${NC}         Setup Let's Encrypt SSL certificate for custom domain
+  ${YELLOW}setup-fees${NC}        Setup fee structures (run after completing Setup Wizard)
   ${YELLOW}status${NC}            Show detailed container status
   ${YELLOW}logs${NC}              Show and follow logs
   ${YELLOW}shell${NC}             Access backend shell
@@ -873,6 +1030,9 @@ ${GREEN}Examples:${NC}
 
   # Setup SSL certificate (requires CUSTOM_DOMAIN and SSL_EMAIL in config)
   $0 setup-ssl
+
+  # Setup fee structures after completing Setup Wizard
+  $0 setup-fees
 
   # Use specific config file for multiple schools
   CONFIG_FILE=.school-main.conf $0 start
@@ -933,6 +1093,9 @@ case "${1:-help}" in
         ;;
     setup-ssl)
         setup_ssl
+        ;;
+    setup-fees)
+        setup_fee_structures
         ;;
     status|ps)
         status_project
