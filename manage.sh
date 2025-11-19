@@ -985,36 +985,83 @@ def setup_fee_structures():
     print(f"✓ Using receivable account: {receivable_account}")
     print("")
 
-    # Fee structures for all 20 CBSE programs (matching complete_school_setup.py names)
-    fee_structures = [
-        {"program": "Playgroup", "monthly_fee": 500},
-        {"program": "Nursery", "monthly_fee": 550},
-        {"program": "Lower Kindergarten (LKG)", "monthly_fee": 600},
-        {"program": "Upper Kindergarten (UKG)", "monthly_fee": 650},
-        {"program": "Class 1", "monthly_fee": 700},
-        {"program": "Class 2", "monthly_fee": 750},
-        {"program": "Class 3", "monthly_fee": 800},
-        {"program": "Class 4", "monthly_fee": 850},
-        {"program": "Class 5", "monthly_fee": 900},
-        {"program": "Class 6", "monthly_fee": 950},
-        {"program": "Class 7", "monthly_fee": 1000},
-        {"program": "Class 8", "monthly_fee": 1050},
-        {"program": "Class 9", "monthly_fee": 1100},
-        {"program": "Class 10", "monthly_fee": 1150},
-        {"program": "Class 11 - Science Stream", "monthly_fee": 1200},
-        {"program": "Class 11 - Commerce Stream", "monthly_fee": 1200},
-        {"program": "Class 11 - Arts Stream", "monthly_fee": 1200},
-        {"program": "Class 12 - Science Stream", "monthly_fee": 1200},
-        {"program": "Class 12 - Commerce Stream", "monthly_fee": 1200},
-        {"program": "Class 12 - Arts Stream", "monthly_fee": 1200},
+    # Ensure fee categories exist
+    print("Setting up fee categories...")
+    fee_categories = [
+        "Tuition Fee",
+        "Admission Fee",
+        "Library Fee",
+        "Lab Fee",
+        "Sports Fee",
+        "Computer Fee",
+        "Exam Fee",
+        "Annual Charges",
+        "Hostel Fee",
+        "Transport Fee - Route 1 (0-5 km)",
+        "Transport Fee - Route 2 (5-10 km)",
+        "Transport Fee - Route 3 (10-15 km)",
+        "Transport Fee - Route 4 (15+ km)",
     ]
+
+    for category in fee_categories:
+        if not frappe.db.exists("Fee Category", category):
+            frappe.get_doc({
+                "doctype": "Fee Category",
+                "fee_category_name": category,
+            }).insert(ignore_permissions=True)
+
+    frappe.db.commit()
+    print("✓ Fee categories ready")
+    print("")
+
+    # Fee structures with multiple components for all 20 CBSE programs
+    fee_structures = [
+        # Pre-Primary (lower fees, no lab/computer fees)
+        {"program": "Playgroup", "tuition": 500, "admission": 5000, "annual": 2000, "library": 200, "sports": 200},
+        {"program": "Nursery", "tuition": 550, "admission": 5000, "annual": 2000, "library": 200, "sports": 200},
+        {"program": "Lower Kindergarten (LKG)", "tuition": 600, "admission": 5000, "annual": 2500, "library": 300, "sports": 300},
+        {"program": "Upper Kindergarten (UKG)", "tuition": 650, "admission": 5000, "annual": 2500, "library": 300, "sports": 300},
+        # Primary Classes (add computer fee from Class 3)
+        {"program": "Class 1", "tuition": 700, "admission": 6000, "annual": 3000, "library": 400, "sports": 400, "exam": 500},
+        {"program": "Class 2", "tuition": 750, "admission": 6000, "annual": 3000, "library": 400, "sports": 400, "exam": 500},
+        {"program": "Class 3", "tuition": 800, "admission": 6000, "annual": 3000, "library": 400, "sports": 400, "computer": 300, "exam": 500},
+        {"program": "Class 4", "tuition": 850, "admission": 6000, "annual": 3000, "library": 400, "sports": 400, "computer": 300, "exam": 500},
+        {"program": "Class 5", "tuition": 900, "admission": 6000, "annual": 3000, "library": 400, "sports": 400, "computer": 300, "exam": 500},
+        # Middle School (add lab fee)
+        {"program": "Class 6", "tuition": 950, "admission": 7000, "annual": 3500, "library": 500, "sports": 500, "computer": 400, "lab": 500, "exam": 600},
+        {"program": "Class 7", "tuition": 1000, "admission": 7000, "annual": 3500, "library": 500, "sports": 500, "computer": 400, "lab": 500, "exam": 600},
+        {"program": "Class 8", "tuition": 1050, "admission": 7000, "annual": 3500, "library": 500, "sports": 500, "computer": 400, "lab": 500, "exam": 600},
+        # High School (board exam classes - higher fees)
+        {"program": "Class 9", "tuition": 1100, "admission": 8000, "annual": 4000, "library": 600, "sports": 500, "computer": 500, "lab": 600, "exam": 800},
+        {"program": "Class 10", "tuition": 1150, "admission": 8000, "annual": 4000, "library": 600, "sports": 500, "computer": 500, "lab": 600, "exam": 1000},
+        # Senior Secondary (highest fees, stream-specific)
+        {"program": "Class 11 - Science Stream", "tuition": 1200, "admission": 10000, "annual": 5000, "library": 800, "sports": 600, "computer": 600, "lab": 1000, "exam": 1200},
+        {"program": "Class 11 - Commerce Stream", "tuition": 1200, "admission": 10000, "annual": 5000, "library": 800, "sports": 600, "computer": 600, "lab": 500, "exam": 1200},
+        {"program": "Class 11 - Arts Stream", "tuition": 1200, "admission": 10000, "annual": 5000, "library": 800, "sports": 600, "computer": 600, "lab": 300, "exam": 1200},
+        {"program": "Class 12 - Science Stream", "tuition": 1200, "admission": 10000, "annual": 5000, "library": 800, "sports": 600, "computer": 600, "lab": 1000, "exam": 1500},
+        {"program": "Class 12 - Commerce Stream", "tuition": 1200, "admission": 10000, "annual": 5000, "library": 800, "sports": 600, "computer": 600, "lab": 500, "exam": 1500},
+        {"program": "Class 12 - Arts Stream", "tuition": 1200, "admission": 10000, "annual": 5000, "library": 800, "sports": 600, "computer": 600, "lab": 300, "exam": 1500},
+    ]
+
+    # Transport routes (optional, same for all programs)
+    transport_routes = [
+        {"name": "Transport Fee - Route 1 (0-5 km)", "amount": 800},
+        {"name": "Transport Fee - Route 2 (5-10 km)", "amount": 1200},
+        {"name": "Transport Fee - Route 3 (10-15 km)", "amount": 1600},
+        {"name": "Transport Fee - Route 4 (15+ km)", "amount": 2000},
+    ]
+
+    # Hostel fee (optional, only for senior classes)
+    hostel_fee = 3000
 
     created_count = 0
     skipped_count = 0
 
+    print("Creating comprehensive fee structures...")
+    print("")
+
     for item in fee_structures:
         program_name = item["program"]
-        monthly_fee = item["monthly_fee"]
 
         # Check if program exists
         if not frappe.db.exists("Program", program_name):
@@ -1030,6 +1077,38 @@ def setup_fee_structures():
             continue
 
         try:
+            # Build components list based on available fees
+            components = []
+
+            # Tuition (mandatory)
+            components.append({"fees_category": "Tuition Fee", "amount": item["tuition"]})
+
+            # One-time fees
+            if "admission" in item:
+                components.append({"fees_category": "Admission Fee", "amount": item["admission"]})
+            if "annual" in item:
+                components.append({"fees_category": "Annual Charges", "amount": item["annual"]})
+
+            # Recurring fees
+            if "library" in item:
+                components.append({"fees_category": "Library Fee", "amount": item["library"]})
+            if "sports" in item:
+                components.append({"fees_category": "Sports Fee", "amount": item["sports"]})
+            if "computer" in item:
+                components.append({"fees_category": "Computer Fee", "amount": item["computer"]})
+            if "lab" in item:
+                components.append({"fees_category": "Lab Fee", "amount": item["lab"]})
+            if "exam" in item:
+                components.append({"fees_category": "Exam Fee", "amount": item["exam"]})
+
+            # Optional: Hostel (for Class 6 and above)
+            if "Class 6" in program_name or "Class 7" in program_name or "Class 8" in program_name or "Class 9" in program_name or "Class 10" in program_name or "Class 11" in program_name or "Class 12" in program_name:
+                components.append({"fees_category": "Hostel Fee", "amount": hostel_fee, "description": "Optional - for hostel students only"})
+
+            # Optional: Transport (for all programs)
+            for route in transport_routes:
+                components.append({"fees_category": route["name"], "amount": route["amount"], "description": "Optional - select your route"})
+
             # Create fee structure
             fee_structure = frappe.get_doc({
                 "doctype": "Fee Structure",
@@ -1037,17 +1116,14 @@ def setup_fee_structures():
                 "program": program_name,
                 "receivable_account": receivable_account,
                 "company": company,
-                "components": [
-                    {
-                        "fees_category": "Tuition Fee",
-                        "amount": monthly_fee
-                    }
-                ]
+                "components": components
             })
             fee_structure.insert(ignore_permissions=True)
             frappe.db.commit()
 
-            print(f"✓ Created fee structure for {program_name}: ₹{monthly_fee}/month")
+            # Calculate total
+            mandatory_total = sum([c["amount"] for c in components if "Transport" not in c.get("fees_category", "") and "Hostel" not in c.get("fees_category", "")])
+            print(f"✓ Created: {program_name} (₹{mandatory_total:,} mandatory + optional transport/hostel)")
             created_count += 1
 
         except Exception as e:
