@@ -57,17 +57,97 @@ school-management/
 └── scripts/            # Utility scripts
 ```
 
-## 🚀 Quick Start
+## 🚀 Quick Start (Docker)
+
+### 1. Start Services
+```bash
+# Copy environment file
+cp .env.example .env
+
+# Start all services (PostgreSQL + Backend + Frontend)
+docker-compose up -d
+
+# Initialize database with sample data
+docker-compose exec backend python scripts/init_db.py
+```
+
+### 2. Access Application
+- **Frontend UI:** http://localhost:3000
+- **Backend API:** http://localhost:8000
+- **API Docs:** http://localhost:8000/docs
+- **Default Login:** `admin` / `admin123`
+
+### 3. View Logs
+```bash
+docker-compose logs -f backend
+```
+
+### Manual Setup (Without Docker)
+<details>
+<summary>Click to expand manual setup instructions</summary>
 
 ```bash
-# Development
-docker-compose up
+# 1. Install PostgreSQL 15+
+sudo apt install postgresql-15
 
-# Access
-Frontend: http://localhost:3000
-Backend API: http://localhost:8000
-API Docs: http://localhost:8000/docs
+# 2. Create database
+sudo -u postgres psql
+CREATE DATABASE school_management;
+CREATE USER school_admin WITH PASSWORD 'your_password';
+GRANT ALL PRIVILEGES ON DATABASE school_management TO school_admin;
+
+# 3. Setup backend
+cd backend
+python3 -m venv venv
+source venv/bin/activate
+pip install -r requirements.txt
+
+# 4. Configure environment
+export DATABASE_URL="postgresql+asyncpg://school_admin:your_password@localhost/school_management"
+export JWT_SECRET="your-secret-key"
+
+# 5. Initialize database
+python scripts/init_db.py
+
+# 6. Start backend
+uvicorn app.main:app --reload
+
+# 7. Setup frontend (optional)
+cd frontend
+npm install
+npm run dev
 ```
+</details>
+
+## 🐳 Docker Commands
+
+```bash
+# Start services
+docker-compose up -d
+
+# View logs
+docker-compose logs -f backend
+
+# Stop services
+docker-compose down
+
+# Reset everything (removes data)
+docker-compose down -v
+
+# Rebuild after code changes
+docker-compose up -d --build
+
+# Access database
+docker-compose exec db psql -U school_admin -d school_management
+
+# Run migrations
+docker-compose exec backend alembic upgrade head
+
+# Backup database
+docker-compose exec db pg_dump -U school_admin school_management | gzip > backup.sql.gz
+```
+
+See [docs/DOCKER_GUIDE.md](docs/DOCKER_GUIDE.md) for complete Docker documentation.
 
 ## 📊 Database Schema
 

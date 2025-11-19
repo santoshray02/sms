@@ -1,24 +1,29 @@
 version: '3.8'
 
 services:
+  # PostgreSQL Database
   db:
     image: postgres:15-alpine
     container_name: school_db
     restart: unless-stopped
     environment:
-      POSTGRES_USER: school_admin
-      POSTGRES_PASSWORD: school_password_change_in_production
-      POSTGRES_DB: school_management
+      POSTGRES_USER: ${DB_USER:-school_admin}
+      POSTGRES_PASSWORD: ${DB_PASSWORD:-school_password_change_in_production}
+      POSTGRES_DB: ${DB_NAME:-school_management}
     ports:
-      - "5432:5432"
+      - "${DB_PORT:-5432}:5432"
     volumes:
       - postgres_data:/var/lib/postgresql/data
+      - ./backups:/backups
     healthcheck:
-      test: ["CMD-SHELL", "pg_isready -U school_admin -d school_management"]
+      test: ["CMD-SHELL", "pg_isready -U ${DB_USER:-school_admin} -d ${DB_NAME:-school_management}"]
       interval: 10s
       timeout: 5s
       retries: 5
+    networks:
+      - school_network
 
+  # Backend API (FastAPI)
   backend:
     build:
       context: ./backend
@@ -26,23 +31,50 @@ services:
     container_name: school_backend
     restart: unless-stopped
     environment:
-      - DATABASE_URL=postgresql+asyncpg://school_admin:school_password_change_in_production@db:5432/school_management
-      - JWT_SECRET=your-secret-key-change-in-production
-      - JWT_ALGORITHM=HS256
-      - JWT_EXPIRATION_HOURS=24
-      - SMS_GATEWAY=msg91
-      - SMS_API_KEY=your-msg91-api-key
-      - SMS_SENDER_ID=SCHOOL
-      - CORS_ORIGINS=http://localhost:3000
+      # Database
+      DATABASE_URL: postgresql+asyncpg://${DB_USER:-school_admin}:${DB_PASSWORD:-school_password_change_in_production}@db:5432/${DB_NAME:-school_management}
+      DB_HOST: db
+      DB_PORT: 5432
+      DB_NAME: ${DB_NAME:-school_management}
+      DB_USER: ${DB_USER:-school_admin}
+      DB_PASSWORD: ${DB_PASSWORD:-school_password_change_in_production}
+
+      # Security
+      JWT_SECRET: ${JWT_SECRET:-your-secret-key-change-in-production}
+      JWT_ALGORITHM: HS256
+      JWT_EXPIRATION_HOURS: 24
+
+      # SMS Configuration
+      SMS_GATEWAY: ${SMS_GATEWAY:-msg91}
+      MSG91_API_KEY: ${MSG91_API_KEY:-your-msg91-api-key}
+      MSG91_SENDER_ID: ${MSG91_SENDER_ID:-SCHOOL}
+      TWILIO_ACCOUNT_SID: ${TWILIO_ACCOUNT_SID:-}
+      TWILIO_AUTH_TOKEN: ${TWILIO_AUTH_TOKEN:-}
+      TWILIO_PHONE_NUMBER: ${TWILIO_PHONE_NUMBER:-}
+
+      # Application
+      ENVIRONMENT: ${ENVIRONMENT:-development}
+      DEBUG: ${DEBUG:-true}
+      CORS_ORIGINS: ${CORS_ORIGINS:-http://localhost:3000}
     ports:
-      - "8000:8000"
+      - "${BACKEND_PORT:-8000}:8000"
     depends_on:
       db:
         condition: service_healthy
     volumes:
       - ./backend:/app
+      - ./logs:/app/logs
+    networks:
+      - school_network
     command: uvicorn app.main:app --host 0.0.0.0 --port 8000 --reload
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8000/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 40s
 
+  # Frontend (React + Vite)
   frontend:
     build:
       context: ./frontend
@@ -50,20 +82,124 @@ services:
     container_name: school_frontend
     restart: unless-stopped
     environment:
-      - REACT_APP_API_URL=http://localhost:8000/api/v1
+      VITE_API_BASE_URL: ${VITE_API_BASE_URL:-http://localhost:8000/api/v1}
+      NODE_ENV: ${NODE_ENV:-development}
     ports:
-      - "3000:3000"
+      - "${FRONTEND_PORT:-3000}:3000"
     depends_on:
       - backend
     volumes:
       - ./frontend:/app
       - /app/node_modules
-    command: npm start
+    networks:
+      - school_network
+    command: npm run dev -- --host 0.0.0.0
+
+  # Nginx Reverse Proxy (Optional - for production)
+  nginx:
+    image: nginx:alpine
+    container_name: school_nginx
+    restart: unless-stopped
+    ports:
+      - "80:80"
+      - "443:443"
+    volumes:
+      - ./nginx/nginx.conf:/etc/nginx/nginx.conf:ro
+      - ./nginx/ssl:/etc/nginx/ssl:ro
+      - ./frontend/dist:/usr/share/nginx/html:ro
+    depends_on:
+      - backend
+      - frontend
+    networks:
+      - school_network
+    profiles:
+      - production
 
 volumes:
   postgres_data:
     driver: local
 
 networks:
-  default:
-    name: school_network
+  school_network:
+    driver: bridge
+
+# ============================================================================
+# QUICK START GUIDE
+# ============================================================================
+#
+# 1. Development Mode (fastest way to start):
+#    docker-compose up -d
+#
+# 2. Initialize the database with sample data:
+#    docker-compose exec backend python scripts/init_db.py
+#
+# 3. Access the application:
+#    - Backend API: http://localhost:8000
+#    - API Docs: http://localhost:8000/docs
+#    - Frontend: http://localhost:3000
+#    - Default Login: admin / admin123
+#
+# 4. View logs:
+#    docker-compose logs -f backend
+#    docker-compose logs -f frontend
+#    docker-compose logs -f db
+#
+# 5. Run database migrations:
+#    docker-compose exec backend alembic upgrade head
+#
+# 6. Create new migration:
+#    docker-compose exec backend alembic revision --autogenerate -m "description"
+#
+# 7. Stop all services:
+#    docker-compose down
+#
+# 8. Stop and remove all data:
+#    docker-compose down -v
+#
+# ============================================================================
+# PRODUCTION DEPLOYMENT
+# ============================================================================
+#
+# 1. Copy .env.example to .env and configure:
+#    cp .env.example .env
+#    nano .env
+#
+# 2. Start with production profile:
+#    docker-compose --profile production up -d
+#
+# 3. Setup SSL certificates (if using nginx):
+#    docker-compose exec nginx certbot --nginx -d yourdomain.com
+#
+# ============================================================================
+# DATABASE OPERATIONS
+# ============================================================================
+#
+# Backup database:
+#   docker-compose exec db pg_dump -U school_admin school_management | gzip > backup_$(date +%Y%m%d).sql.gz
+#
+# Restore database:
+#   gunzip -c backup.sql.gz | docker-compose exec -T db psql -U school_admin school_management
+#
+# Access database shell:
+#   docker-compose exec db psql -U school_admin -d school_management
+#
+# ============================================================================
+# TROUBLESHOOTING
+# ============================================================================
+#
+# Backend not starting:
+#   docker-compose logs backend
+#   docker-compose exec backend pip list
+#
+# Database connection issues:
+#   docker-compose exec db pg_isready -U school_admin
+#   docker-compose exec backend env | grep DATABASE
+#
+# Reset everything:
+#   docker-compose down -v
+#   docker-compose up -d --build
+#   docker-compose exec backend python scripts/init_db.py
+#
+# Update dependencies:
+#   docker-compose exec backend pip install -r requirements.txt
+#   docker-compose exec frontend npm install
