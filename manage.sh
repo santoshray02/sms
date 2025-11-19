@@ -847,12 +847,13 @@ import frappe
 def hide_non_school_modules():
     """Hide modules not needed for school management from sidebar (v15 method)"""
 
-    # Modules to hide for ALL users
+    # Modules to hide for ALL users (keep only Education, Accounting for accountants, Users)
     modules_to_hide = [
         "Manufacturing", "Buying", "Selling", "Stock", "CRM",
         "Projects", "Support", "Loan Management", "Healthcare",
         "Payroll", "Quality", "Maintenance", "Website", "Build",
-        "Integrations", "ERPNext Integrations"
+        "Integrations", "ERPNext Integrations", "Assets", "Tools",
+        "ERPNext Settings", "HR"
     ]
 
     print("Hiding non-school modules (ERPNext v15 method)...")
