@@ -1,12 +1,12 @@
 from fastapi import APIRouter
-
-# Import routers from endpoints (to be created)
-# from app.api.v1.endpoints import auth, students, classes, fees, payments, reports, sms, settings
+from app.api.v1.endpoints import auth
 
 api_router = APIRouter()
 
-# TODO: Include routers once endpoints are created
-# api_router.include_router(auth.router, prefix="/auth", tags=["Authentication"])
+# Include routers
+api_router.include_router(auth.router, prefix="/auth", tags=["Authentication"])
+
+# TODO: Include remaining routers once endpoints are created
 # api_router.include_router(students.router, prefix="/students", tags=["Students"])
 # api_router.include_router(classes.router, prefix="/classes", tags=["Classes"])
 # api_router.include_router(fees.router, prefix="/fees", tags=["Fees"])
