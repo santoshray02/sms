@@ -57,40 +57,61 @@ school-management/
 └── scripts/            # Utility scripts
 ```
 
-## 🚀 Quick Start (Docker)
+## 🚀 Quick Start
 
-### Option 1: Automated Setup (Easiest)
+### Three Simple Commands
 ```bash
-# One command to set up and start everything!
-./start.sh
+./manage.sh install    # First time setup (creates .env, pulls images)
+./manage.sh start      # Start all services (PostgreSQL + Backend + Frontend)
 ```
 
-### Option 2: Manual Setup
-```bash
-# 1. Copy environment file
-cp .env.example .env
-
-# 2. Start all services (PostgreSQL + Backend + Frontend)
-docker-compose up -d
-
-# 3. Initialize database with sample data
-docker-compose exec backend python scripts/init_db.py
-```
-
-### Access Application
+That's it! Access at:
 - **Frontend UI:** http://localhost:3000
 - **Backend API:** http://localhost:8000
 - **API Docs:** http://localhost:8000/docs
 - **Default Login:** `admin` / `admin123`
 
-### Stop Services
+### Management Commands
 ```bash
-# Option 1: Using stop script
-./stop.sh
-
-# Option 2: Using docker-compose
-docker-compose down
+./manage.sh status     # Check if services are running
+./manage.sh logs       # View all logs (Ctrl+C to exit)
+./manage.sh stop       # Stop all services
+./manage.sh restart    # Restart services
+./manage.sh backup     # Backup database
+./manage.sh help       # See all available commands
 ```
+
+### All Available Commands
+```
+install          - Install and setup the system
+configure        - Edit configuration (.env file)
+start            - Start all services
+stop             - Stop all services
+restart          - Restart all services
+status           - Show service status
+logs [service]   - Show logs (optional: backend, frontend, db)
+
+init-db          - Initialize database with sample data
+backup           - Create database backup
+restore <file>   - Restore database from backup
+migrate          - Run database migrations
+
+shell [service]  - Access shell (backend, frontend, db)
+update           - Update system to latest version
+clean            - Remove all data and containers
+```
+
+### Examples
+```bash
+./manage.sh install                  # First time setup
+./manage.sh start                    # Start everything
+./manage.sh logs backend             # View backend logs only
+./manage.sh backup                   # Create database backup
+./manage.sh shell db                 # Access PostgreSQL shell
+./manage.sh restore backup.sql.gz    # Restore from backup
+```
+
+See [docs/DOCKER_GUIDE.md](docs/DOCKER_GUIDE.md) for detailed Docker documentation.
 
 ### Manual Setup (Without Docker)
 <details>
@@ -128,36 +149,6 @@ npm install
 npm run dev
 ```
 </details>
-
-## 🐳 Docker Commands
-
-```bash
-# Start services
-docker-compose up -d
-
-# View logs
-docker-compose logs -f backend
-
-# Stop services
-docker-compose down
-
-# Reset everything (removes data)
-docker-compose down -v
-
-# Rebuild after code changes
-docker-compose up -d --build
-
-# Access database
-docker-compose exec db psql -U school_admin -d school_management
-
-# Run migrations
-docker-compose exec backend alembic upgrade head
-
-# Backup database
-docker-compose exec db pg_dump -U school_admin school_management | gzip > backup.sql.gz
-```
-
-See [docs/DOCKER_GUIDE.md](docs/DOCKER_GUIDE.md) for complete Docker documentation.
 
 ## 📊 Database Schema
 
