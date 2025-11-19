@@ -1,5 +1,6 @@
 from pydantic_settings import BaseSettings
-from typing import List
+from pydantic import field_validator
+from typing import List, Union
 
 
 class Settings(BaseSettings):
@@ -21,12 +22,19 @@ class Settings(BaseSettings):
 
     # SMS
     SMS_GATEWAY: str = "msg91"
-    SMS_API_KEY: str
+    SMS_API_KEY: str = ""  # Optional - set for SMS functionality
     SMS_SENDER_ID: str = "SCHOOL"
     SMS_ROUTE: str = "4"
 
-    # CORS
-    CORS_ORIGINS: List[str] = ["http://localhost:3000"]
+    # CORS - Can be string (comma-separated) or list
+    CORS_ORIGINS: Union[List[str], str] = "http://localhost:3000"
+
+    @field_validator("CORS_ORIGINS", mode="before")
+    @classmethod
+    def parse_cors_origins(cls, v):
+        if isinstance(v, str):
+            return [origin.strip() for origin in v.split(",")]
+        return v
 
     # Scheduler
     FEE_GENERATION_DAY: str = "last"

@@ -55,7 +55,6 @@ services:
       # Application
       ENVIRONMENT: ${ENVIRONMENT:-development}
       DEBUG: ${DEBUG:-true}
-      CORS_ORIGINS: ${CORS_ORIGINS:-http://localhost:3000}
     ports:
       - "${BACKEND_PORT:-8000}:8000"
     depends_on:
