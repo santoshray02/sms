@@ -813,6 +813,114 @@ reset_project() {
     print_info "You can now run './manage.sh install' to create a fresh installation"
 }
 
+# Function to setup CBSE programs
+setup_programs() {
+    load_config "$CONFIG_FILE"
+
+    local project_name=$(get_project_name)
+    local env_file=$(get_env_file)
+
+    print_info "Setting up CBSE programs for: ${SCHOOL_CODE}"
+
+    if [ ! -f "$env_file" ]; then
+        print_error "Environment file not found: ${env_file}"
+        print_info "Run 'install' command first to deploy the instance"
+        exit 1
+    fi
+
+    # Find backend container
+    local backend_container=$(docker ps --filter "name=${project_name}.*backend" --format "{{.Names}}" | head -1)
+
+    if [ -z "$backend_container" ]; then
+        print_error "Backend container not found. Is the instance running?"
+        print_info "Run './manage.sh status' to check container status"
+        exit 1
+    fi
+
+    print_info "Creating 20 CBSE programs (Playgroup to Class 12)..."
+    echo ""
+
+    # Create Python module for programs setup
+    docker exec -i "$backend_container" bash -c "cat > /home/frappe/frappe-bench/apps/frappe/frappe/programs_setup.py" << 'EOFPYTHON'
+import frappe
+
+def setup_cbse_programs():
+    """Create CBSE board programs from Playgroup to Class 12"""
+
+    programs = [
+        # Pre-Primary
+        {"program_name": "Playgroup", "program_abbreviation": "PG"},
+        {"program_name": "Nursery", "program_abbreviation": "NUR"},
+        {"program_name": "Lower Kindergarten (LKG)", "program_abbreviation": "LKG"},
+        {"program_name": "Upper Kindergarten (UKG)", "program_abbreviation": "UKG"},
+        # Primary Classes
+        {"program_name": "Class 1", "program_abbreviation": "I"},
+        {"program_name": "Class 2", "program_abbreviation": "II"},
+        {"program_name": "Class 3", "program_abbreviation": "III"},
+        {"program_name": "Class 4", "program_abbreviation": "IV"},
+        {"program_name": "Class 5", "program_abbreviation": "V"},
+        # Middle School
+        {"program_name": "Class 6", "program_abbreviation": "VI"},
+        {"program_name": "Class 7", "program_abbreviation": "VII"},
+        {"program_name": "Class 8", "program_abbreviation": "VIII"},
+        # High School
+        {"program_name": "Class 9", "program_abbreviation": "IX"},
+        {"program_name": "Class 10", "program_abbreviation": "X"},
+        # Senior Secondary
+        {"program_name": "Class 11 - Science Stream", "program_abbreviation": "XI-SCI"},
+        {"program_name": "Class 11 - Commerce Stream", "program_abbreviation": "XI-COM"},
+        {"program_name": "Class 11 - Arts Stream", "program_abbreviation": "XI-ART"},
+        {"program_name": "Class 12 - Science Stream", "program_abbreviation": "XII-SCI"},
+        {"program_name": "Class 12 - Commerce Stream", "program_abbreviation": "XII-COM"},
+        {"program_name": "Class 12 - Arts Stream", "program_abbreviation": "XII-ART"},
+    ]
+
+    created_count = 0
+    existing_count = 0
+
+    for prog in programs:
+        try:
+            if not frappe.db.exists("Program", prog["program_name"]):
+                doc = frappe.get_doc({
+                    "doctype": "Program",
+                    "program_name": prog["program_name"],
+                    "program_abbreviation": prog["program_abbreviation"],
+                })
+                doc.insert(ignore_permissions=True)
+                print(f"✓ Created: {prog['program_name']}")
+                created_count += 1
+            else:
+                print(f"⊙ Already exists: {prog['program_name']}")
+                existing_count += 1
+        except Exception as e:
+            print(f"✗ Failed to create {prog['program_name']}: {e}")
+
+    frappe.db.commit()
+    print("")
+    print(f"Summary: {created_count} created, {existing_count} already exist")
+    return True
+EOFPYTHON
+
+    # Execute using bench execute with module.function path
+    docker exec "$backend_container" bench --site "${SITE_NAME}" execute frappe.programs_setup.setup_cbse_programs
+
+    exit_code=$?
+
+    # Clean up temp file
+    docker exec "$backend_container" rm -f /home/frappe/frappe-bench/apps/frappe/frappe/programs_setup.py
+
+    if [ $exit_code -eq 0 ]; then
+        echo ""
+        print_success "CBSE programs setup completed"
+        echo ""
+        print_info "Next step: Run './manage.sh setup-fees' to create fee structures"
+    else
+        echo ""
+        print_error "Programs setup encountered errors"
+        exit 1
+    fi
+}
+
 # Function to setup fee structures
 setup_fee_structures() {
     load_config "$CONFIG_FILE"
@@ -988,7 +1096,8 @@ show_help() {
     echo -e "  ${YELLOW}reset${NC}             Delete everything and start fresh (requires confirmation)"
     echo -e "  ${YELLOW}set-hostname${NC}      Set the hostname for the site (e.g., set-hostname internal3.paperentry.ai)"
     echo -e "  ${YELLOW}setup-ssl${NC}         Setup Let's Encrypt SSL certificate for custom domain"
-    echo -e "  ${YELLOW}setup-fees${NC}        Setup fee structures (run after completing Setup Wizard)"
+    echo -e "  ${YELLOW}setup-programs${NC}    Setup 20 CBSE programs (Playgroup to Class 12)"
+    echo -e "  ${YELLOW}setup-fees${NC}        Setup fee structures (run after setup-programs and Setup Wizard)"
     echo -e "  ${YELLOW}status${NC}            Show detailed container status"
     echo -e "  ${YELLOW}logs${NC}              Show and follow logs"
     echo -e "  ${YELLOW}shell${NC}             Access backend shell"
@@ -1029,6 +1138,9 @@ show_help() {
     echo ""
     echo "  # Setup SSL certificate (requires CUSTOM_DOMAIN and SSL_EMAIL in config)"
     echo "  $0 setup-ssl"
+    echo ""
+    echo "  # Setup CBSE programs"
+    echo "  $0 setup-programs"
     echo ""
     echo "  # Setup fee structures after completing Setup Wizard"
     echo "  $0 setup-fees"
@@ -1091,6 +1203,9 @@ case "${1:-help}" in
         ;;
     setup-ssl)
         setup_ssl
+        ;;
+    setup-programs)
+        setup_programs
         ;;
     setup-fees)
         setup_fee_structures
