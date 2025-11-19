@@ -59,27 +59,37 @@ school-management/
 
 ## 🚀 Quick Start (Docker)
 
-### 1. Start Services
+### Option 1: Automated Setup (Easiest)
 ```bash
-# Copy environment file
+# One command to set up and start everything!
+./start.sh
+```
+
+### Option 2: Manual Setup
+```bash
+# 1. Copy environment file
 cp .env.example .env
 
-# Start all services (PostgreSQL + Backend + Frontend)
+# 2. Start all services (PostgreSQL + Backend + Frontend)
 docker-compose up -d
 
-# Initialize database with sample data
+# 3. Initialize database with sample data
 docker-compose exec backend python scripts/init_db.py
 ```
 
-### 2. Access Application
+### Access Application
 - **Frontend UI:** http://localhost:3000
 - **Backend API:** http://localhost:8000
 - **API Docs:** http://localhost:8000/docs
 - **Default Login:** `admin` / `admin123`
 
-### 3. View Logs
+### Stop Services
 ```bash
-docker-compose logs -f backend
+# Option 1: Using stop script
+./stop.sh
+
+# Option 2: Using docker-compose
+docker-compose down
 ```
 
 ### Manual Setup (Without Docker)
