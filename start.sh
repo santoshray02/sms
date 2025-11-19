@@ -17,15 +17,19 @@ if ! command -v docker &> /dev/null; then
     exit 1
 fi
 
-# Check if docker-compose is installed
-if ! command -v docker-compose &> /dev/null; then
+# Check if docker-compose (v1) or docker compose (v2) is available
+if command -v docker-compose &> /dev/null; then
+    DOCKER_COMPOSE="docker-compose"
+elif docker compose version &> /dev/null; then
+    DOCKER_COMPOSE="docker compose"
+else
     echo "❌ Docker Compose is not installed. Please install Docker Compose first."
     echo "   Visit: https://docs.docker.com/compose/install/"
     exit 1
 fi
 
 echo "✓ Docker is installed: $(docker --version)"
-echo "✓ Docker Compose is installed: $(docker-compose --version)"
+echo "✓ Docker Compose is installed: $($DOCKER_COMPOSE version)"
 echo ""
 
 # Check if .env file exists
@@ -55,11 +59,11 @@ echo ""
 
 # Stop any running containers
 echo "→ Stopping any existing containers..."
-docker-compose down > /dev/null 2>&1 || true
+$DOCKER_COMPOSE down > /dev/null 2>&1 || true
 
 # Start services
 echo "→ Starting PostgreSQL, Backend, and Frontend..."
-docker-compose up -d
+$DOCKER_COMPOSE up -d
 
 echo ""
 echo "⏳ Waiting for services to be ready..."
@@ -68,7 +72,7 @@ echo ""
 # Wait for database
 echo -n "→ Waiting for database... "
 sleep 5
-until docker-compose exec -T db pg_isready -U school_admin -q 2>/dev/null; do
+until $DOCKER_COMPOSE exec -T db pg_isready -U school_admin -q 2>/dev/null; do
     echo -n "."
     sleep 2
 done
@@ -90,11 +94,11 @@ echo ""
 
 # Check if database is already initialized
 echo "→ Checking database..."
-TABLES=$(docker-compose exec -T db psql -U school_admin -d school_management -t -c "SELECT COUNT(*) FROM information_schema.tables WHERE table_schema = 'public';" 2>/dev/null | tr -d ' ')
+TABLES=$($DOCKER_COMPOSE exec -T db psql -U school_admin -d school_management -t -c "SELECT COUNT(*) FROM information_schema.tables WHERE table_schema = 'public';" 2>/dev/null | tr -d ' ')
 
 if [ "$TABLES" -eq "0" ]; then
     echo "→ Initializing database with sample data..."
-    docker-compose exec -T backend python scripts/init_db.py
+    $DOCKER_COMPOSE exec -T backend python scripts/init_db.py
     echo "✓ Database initialized"
 else
     echo "✓ Database already initialized ($TABLES tables found)"
