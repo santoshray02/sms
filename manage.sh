@@ -971,95 +971,93 @@ EOFPYTHON
 
 # Function to show help
 show_help() {
-    cat << EOF
-${BLUE}ERPNext Education Management Script${NC}
-
-${GREEN}Usage:${NC}
-  $0 <command> [options]
-  CONFIG_FILE=path/to/config.conf $0 <command>
-
-${GREEN}Commands:${NC}
-  ${YELLOW}info${NC}              Show configuration and deployment info
-  ${YELLOW}install${NC}           Deploy a new school instance
-  ${YELLOW}start${NC}             Start the school instance
-  ${YELLOW}stop${NC}              Stop the school instance
-  ${YELLOW}restart${NC}           Restart the school instance
-  ${YELLOW}recreate${NC}          Recreate containers (keeps data) - useful after config changes
-  ${YELLOW}rebuild${NC}           Pull new images and recreate containers (keeps data)
-  ${YELLOW}reset${NC}             Delete everything and start fresh (requires confirmation)
-  ${YELLOW}set-hostname${NC}      Set the hostname for the site (e.g., set-hostname internal3.paperentry.ai)
-  ${YELLOW}setup-ssl${NC}         Setup Let's Encrypt SSL certificate for custom domain
-  ${YELLOW}setup-fees${NC}        Setup fee structures (run after completing Setup Wizard)
-  ${YELLOW}status${NC}            Show detailed container status
-  ${YELLOW}logs${NC}              Show and follow logs
-  ${YELLOW}shell${NC}             Access backend shell
-  ${YELLOW}help${NC}              Show this help message
-
-${GREEN}Configuration:${NC}
-  The script reads configuration from .school.conf in the script directory.
-  You can override this by setting the CONFIG_FILE environment variable.
-
-  Example config files:
-    - .school.conf (default)
-    - .school-main.conf
-    - .school-branch.conf
-
-${GREEN}Examples:${NC}
-  # Show current configuration info
-  $0 info
-
-  # Use default config (.school.conf)
-  $0 install
-  $0 start
-  $0 stop
-  $0 status
-  $0 logs
-  $0 shell
-
-  # Update docker-compose.yml and recreate containers
-  $0 recreate
-
-  # Pull latest images and rebuild
-  $0 rebuild
-
-  # Complete reset (deletes all data)
-  $0 reset
-
-  # Set custom hostname for external access
-  $0 set-hostname internal3.paperentry.ai
-
-  # Setup SSL certificate (requires CUSTOM_DOMAIN and SSL_EMAIL in config)
-  $0 setup-ssl
-
-  # Setup fee structures after completing Setup Wizard
-  $0 setup-fees
-
-  # Use specific config file for multiple schools
-  CONFIG_FILE=.school-main.conf $0 start
-  CONFIG_FILE=.school-branch.conf $0 start
-  CONFIG_FILE=.school-main.conf $0 status
-
-${GREEN}Configuration File:${NC}
-  Copy .school.conf.example to .school.conf and customize:
-    cp .school.conf.example .school.conf
-    vim .school.conf
-
-  Required fields:
-    - SCHOOL_CODE: Unique identifier for the school
-    - BASE_PORT: Port for HTTP access
-
-${GREEN}Container Naming:${NC}
-  Containers are named using pattern: ${USERNAME}_<SCHOOL_CODE>
-  Example: ${USERNAME}_main_school
-
-${GREEN}File Locations:${NC}
-  - Configurations: ${SCRIPT_DIR}/.school*.conf
-  - Docker Compose: ${SCRIPT_DIR}/docker-compose.yml (template)
-  - Data files: ${SCRIPT_DIR}/data/
-  - Environment files: ${SCRIPT_DIR}/data/*.env
-  - Credentials: ${SCRIPT_DIR}/data/*-credentials.txt
-
-EOF
+    echo -e "${BLUE}ERPNext Education Management Script${NC}"
+    echo ""
+    echo -e "${GREEN}Usage:${NC}"
+    echo "  $0 <command> [options]"
+    echo "  CONFIG_FILE=path/to/config.conf $0 <command>"
+    echo ""
+    echo -e "${GREEN}Commands:${NC}"
+    echo -e "  ${YELLOW}info${NC}              Show configuration and deployment info"
+    echo -e "  ${YELLOW}install${NC}           Deploy a new school instance"
+    echo -e "  ${YELLOW}start${NC}             Start the school instance"
+    echo -e "  ${YELLOW}stop${NC}              Stop the school instance"
+    echo -e "  ${YELLOW}restart${NC}           Restart the school instance"
+    echo -e "  ${YELLOW}recreate${NC}          Recreate containers (keeps data) - useful after config changes"
+    echo -e "  ${YELLOW}rebuild${NC}           Pull new images and recreate containers (keeps data)"
+    echo -e "  ${YELLOW}reset${NC}             Delete everything and start fresh (requires confirmation)"
+    echo -e "  ${YELLOW}set-hostname${NC}      Set the hostname for the site (e.g., set-hostname internal3.paperentry.ai)"
+    echo -e "  ${YELLOW}setup-ssl${NC}         Setup Let's Encrypt SSL certificate for custom domain"
+    echo -e "  ${YELLOW}setup-fees${NC}        Setup fee structures (run after completing Setup Wizard)"
+    echo -e "  ${YELLOW}status${NC}            Show detailed container status"
+    echo -e "  ${YELLOW}logs${NC}              Show and follow logs"
+    echo -e "  ${YELLOW}shell${NC}             Access backend shell"
+    echo -e "  ${YELLOW}help${NC}              Show this help message"
+    echo ""
+    echo -e "${GREEN}Configuration:${NC}"
+    echo "  The script reads configuration from .school.conf in the script directory."
+    echo "  You can override this by setting the CONFIG_FILE environment variable."
+    echo ""
+    echo "  Example config files:"
+    echo "    - .school.conf (default)"
+    echo "    - .school-main.conf"
+    echo "    - .school-branch.conf"
+    echo ""
+    echo -e "${GREEN}Examples:${NC}"
+    echo "  # Show current configuration info"
+    echo "  $0 info"
+    echo ""
+    echo "  # Use default config (.school.conf)"
+    echo "  $0 install"
+    echo "  $0 start"
+    echo "  $0 stop"
+    echo "  $0 status"
+    echo "  $0 logs"
+    echo "  $0 shell"
+    echo ""
+    echo "  # Update docker-compose.yml and recreate containers"
+    echo "  $0 recreate"
+    echo ""
+    echo "  # Pull latest images and rebuild"
+    echo "  $0 rebuild"
+    echo ""
+    echo "  # Complete reset (deletes all data)"
+    echo "  $0 reset"
+    echo ""
+    echo "  # Set custom hostname for external access"
+    echo "  $0 set-hostname internal3.paperentry.ai"
+    echo ""
+    echo "  # Setup SSL certificate (requires CUSTOM_DOMAIN and SSL_EMAIL in config)"
+    echo "  $0 setup-ssl"
+    echo ""
+    echo "  # Setup fee structures after completing Setup Wizard"
+    echo "  $0 setup-fees"
+    echo ""
+    echo "  # Use specific config file for multiple schools"
+    echo "  CONFIG_FILE=.school-main.conf $0 start"
+    echo "  CONFIG_FILE=.school-branch.conf $0 start"
+    echo "  CONFIG_FILE=.school-main.conf $0 status"
+    echo ""
+    echo -e "${GREEN}Configuration File:${NC}"
+    echo "  Copy .school.conf.example to .school.conf and customize:"
+    echo "    cp .school.conf.example .school.conf"
+    echo "    vim .school.conf"
+    echo ""
+    echo "  Required fields:"
+    echo "    - SCHOOL_CODE: Unique identifier for the school"
+    echo "    - BASE_PORT: Port for HTTP access"
+    echo ""
+    echo -e "${GREEN}Container Naming:${NC}"
+    echo "  Containers are named using pattern: ${USERNAME}_<SCHOOL_CODE>"
+    echo "  Example: ${USERNAME}_main_school"
+    echo ""
+    echo -e "${GREEN}File Locations:${NC}"
+    echo "  - Configurations: ${SCRIPT_DIR}/.school*.conf"
+    echo "  - Docker Compose: ${SCRIPT_DIR}/docker-compose.yml (template)"
+    echo "  - Data files: ${SCRIPT_DIR}/data/"
+    echo "  - Environment files: ${SCRIPT_DIR}/data/*.env"
+    echo "  - Credentials: ${SCRIPT_DIR}/data/*-credentials.txt"
+    echo ""
 }
 
 # Main script logic
