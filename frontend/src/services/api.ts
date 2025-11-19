@@ -1,6 +1,21 @@
 import axios, { AxiosInstance, AxiosError } from 'axios';
 
-const API_BASE_URL = import.meta.env.VITE_API_URL || 'http://localhost:8000/api/v1';
+// Dynamically construct API URL based on current hostname
+const getApiBaseUrl = () => {
+  // If explicitly set via environment variable, use it
+  if (import.meta.env.VITE_API_BASE_URL) {
+    return import.meta.env.VITE_API_BASE_URL;
+  }
+
+  // Otherwise, construct dynamically based on current location
+  const protocol = window.location.protocol;
+  const hostname = window.location.hostname;
+  const port = import.meta.env.VITE_BACKEND_PORT || '10221';
+
+  return `${protocol}//${hostname}:${port}/api/v1`;
+};
+
+const API_BASE_URL = getApiBaseUrl();
 
 class ApiClient {
   private client: AxiosInstance;
