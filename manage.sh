@@ -813,6 +813,104 @@ reset_project() {
     print_info "You can now run './manage.sh install' to create a fresh installation"
 }
 
+# Function to hide non-school modules for all users
+hide_modules() {
+    load_config "$CONFIG_FILE"
+
+    local project_name=$(get_project_name)
+    local env_file=$(get_env_file)
+
+    print_info "Hiding non-school modules for: ${SCHOOL_CODE}"
+
+    if [ ! -f "$env_file" ]; then
+        print_error "Environment file not found: ${env_file}"
+        print_info "Run 'install' command first to deploy the instance"
+        exit 1
+    fi
+
+    # Find backend container
+    local backend_container=$(docker ps --filter "name=${project_name}.*backend" --format "{{.Names}}" | head -1)
+
+    if [ -z "$backend_container" ]; then
+        print_error "Backend container not found. Is the instance running?"
+        print_info "Run './manage.sh status' to check container status"
+        exit 1
+    fi
+
+    print_info "Hiding unnecessary modules from all users..."
+    echo ""
+
+    # Create Python module to hide modules
+    docker exec -i "$backend_container" bash -c "cat > /home/frappe/frappe-bench/apps/frappe/frappe/hide_modules_setup.py" << 'EOFPYTHON'
+import frappe
+
+def hide_non_school_modules():
+    """Hide modules not needed for school management"""
+
+    # Modules to hide for ALL users (including Administrator for cleaner UI)
+    modules_to_hide = [
+        "Manufacturing", "Buying", "Selling", "Stock", "CRM",
+        "Projects", "Support", "Loan Management", "Healthcare",
+        "Payroll", "Quality", "Maintenance", "Website", "Build"
+    ]
+
+    print("Hiding non-school modules...")
+    print("")
+
+    hidden_count = 0
+
+    for module in modules_to_hide:
+        # Get all desktop icons for this module
+        desktop_icons = frappe.get_all("Desktop Icon",
+            filters={
+                "module_name": module,
+            },
+            fields=["name", "blocked"]
+        )
+
+        for icon in desktop_icons:
+            if not icon.blocked:
+                frappe.db.set_value("Desktop Icon", icon.name, "blocked", 1)
+                hidden_count += 1
+                print(f"✓ Hidden: {module}")
+                break  # Only print once per module
+            else:
+                print(f"⊙ Already hidden: {module}")
+                break
+
+    frappe.db.commit()
+
+    print("")
+    if hidden_count > 0:
+        print(f"Summary: {hidden_count} modules hidden")
+    else:
+        print("Summary: All modules already hidden")
+
+    print("")
+    print("Note: Users may need to logout and login to see changes")
+    return True
+EOFPYTHON
+
+    # Execute using bench execute with module.function path
+    docker exec "$backend_container" bench --site "${SITE_NAME}" execute frappe.hide_modules_setup.hide_non_school_modules
+
+    exit_code=$?
+
+    # Clean up temp file
+    docker exec "$backend_container" rm -f /home/frappe/frappe-bench/apps/frappe/frappe/hide_modules_setup.py
+
+    if [ $exit_code -eq 0 ]; then
+        echo ""
+        print_success "Modules hidden successfully"
+        echo ""
+        print_info "Users should logout and login to see changes"
+    else
+        echo ""
+        print_error "Module hiding encountered errors"
+        exit 1
+    fi
+}
+
 # Function to setup CBSE programs
 setup_programs() {
     load_config "$CONFIG_FILE"
@@ -1174,6 +1272,7 @@ show_help() {
     echo -e "  ${YELLOW}setup-ssl${NC}         Setup Let's Encrypt SSL certificate for custom domain"
     echo -e "  ${YELLOW}setup-programs${NC}    Setup 20 CBSE programs (Playgroup to Class 12)"
     echo -e "  ${YELLOW}setup-fees${NC}        Setup fee structures (run after setup-programs and Setup Wizard)"
+    echo -e "  ${YELLOW}hide-modules${NC}      Hide non-school modules (Manufacturing, Buying, Selling, etc.)"
     echo -e "  ${YELLOW}status${NC}            Show detailed container status"
     echo -e "  ${YELLOW}logs${NC}              Show and follow logs"
     echo -e "  ${YELLOW}shell${NC}             Access backend shell"
@@ -1220,6 +1319,9 @@ show_help() {
     echo ""
     echo "  # Setup fee structures after completing Setup Wizard"
     echo "  $0 setup-fees"
+    echo ""
+    echo "  # Hide non-school modules for cleaner UI"
+    echo "  $0 hide-modules"
     echo ""
     echo "  # Use specific config file for multiple schools"
     echo "  CONFIG_FILE=.school-main.conf $0 start"
@@ -1285,6 +1387,9 @@ case "${1:-help}" in
         ;;
     setup-fees)
         setup_fee_structures
+        ;;
+    hide-modules)
+        hide_modules
         ;;
     status|ps)
         status_project
