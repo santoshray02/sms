@@ -129,6 +129,24 @@ class ApiClient {
     return response.data;
   }
 
+  async createFeeStructure(data: {
+    class_id: number;
+    academic_year_id: number;
+    tuition_fee: number;
+    hostel_fee: number;
+  }) {
+    const response = await this.client.post('/fees/structures', data);
+    return response.data;
+  }
+
+  async updateFeeStructure(id: number, data: {
+    tuition_fee: number;
+    hostel_fee: number;
+  }) {
+    const response = await this.client.put(`/fees/structures/${id}`, data);
+    return response.data;
+  }
+
   async generateMonthlyFees(data: {
     academic_year_id: number;
     month: number;
