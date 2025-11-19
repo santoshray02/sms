@@ -845,49 +845,58 @@ hide_modules() {
 import frappe
 
 def hide_non_school_modules():
-    """Hide modules not needed for school management"""
+    """Hide modules not needed for school management from sidebar (v15 method)"""
 
-    # Modules to hide for ALL users (including Administrator for cleaner UI)
+    # Modules to hide for ALL users
     modules_to_hide = [
         "Manufacturing", "Buying", "Selling", "Stock", "CRM",
         "Projects", "Support", "Loan Management", "Healthcare",
-        "Payroll", "Quality", "Maintenance", "Website", "Build"
+        "Payroll", "Quality", "Maintenance", "Website", "Build",
+        "Integrations", "ERPNext Integrations"
     ]
 
-    print("Hiding non-school modules...")
+    print("Hiding non-school modules (ERPNext v15 method)...")
     print("")
 
-    hidden_count = 0
+    workspace_hidden = 0
+    module_blocked = 0
 
     for module in modules_to_hide:
-        # Get all desktop icons for this module
-        desktop_icons = frappe.get_all("Desktop Icon",
-            filters={
-                "module_name": module,
-            },
-            fields=["name", "blocked"]
-        )
+        try:
+            # Method 1: Block Module in Workspace (v15 sidebar control)
+            # Find workspace for this module
+            workspaces = frappe.get_all("Workspace",
+                filters={"module": module},
+                fields=["name", "is_hidden", "public"]
+            )
 
-        for icon in desktop_icons:
-            if not icon.blocked:
-                frappe.db.set_value("Desktop Icon", icon.name, "blocked", 1)
-                hidden_count += 1
+            for workspace in workspaces:
+                # Hide the workspace (removes from sidebar)
+                if not workspace.is_hidden:
+                    frappe.db.set_value("Workspace", workspace.name, "is_hidden", 1)
+                    workspace_hidden += 1
+
+            # Method 2: Set Module Def as restricted
+            if frappe.db.exists("Module Def", module):
+                # Block the module at module level
+                frappe.db.set_value("Module Def", module, "restrict_to_domain", "Manufacturing")
+                module_blocked += 1
                 print(f"✓ Hidden: {module}")
-                break  # Only print once per module
             else:
-                print(f"⊙ Already hidden: {module}")
-                break
+                print(f"⊙ Module not found: {module}")
+
+        except Exception as e:
+            print(f"✗ Error hiding {module}: {e}")
 
     frappe.db.commit()
 
     print("")
-    if hidden_count > 0:
-        print(f"Summary: {hidden_count} modules hidden")
-    else:
-        print("Summary: All modules already hidden")
-
+    print(f"Summary:")
+    print(f"  - {workspace_hidden} workspaces hidden")
+    print(f"  - {module_blocked} modules blocked")
     print("")
-    print("Note: Users may need to logout and login to see changes")
+    print("⚠ Important: Users MUST logout and login to see changes")
+    print("   Or clear browser cache and hard refresh (Ctrl+Shift+R)")
     return True
 EOFPYTHON
 
