@@ -1007,7 +1007,7 @@ def setup_fee_structures():
         if not frappe.db.exists("Fee Category", category):
             frappe.get_doc({
                 "doctype": "Fee Category",
-                "fee_category_name": category,
+                "category_name": category,
             }).insert(ignore_permissions=True)
 
     frappe.db.commit()
