@@ -39,7 +39,7 @@ If ERPNext is already installed:
 If you completed Setup Wizard but need to create fee structures:
 
 ```bash
-./setup-fee-structures.sh
+./manage.sh setup-fees
 ```
 
 ## What This Does
@@ -75,9 +75,9 @@ If you completed Setup Wizard but need to create fee structures:
 
 **Run This:**
 - `./manage.sh install` - Fresh install (does EVERYTHING automatically)
+- `./manage.sh setup-fees` - Fee structures only (after Setup Wizard)
 - `install-education-and-setup.sh` - Existing install (Education + data)
 - `setup-now.sh` - Data setup only (if Education already installed)
-- `setup-fee-structures.sh` - Fee structures only (after Setup Wizard)
 
 **Documentation:**
 - `SETUP.md` - Detailed guide

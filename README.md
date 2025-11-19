@@ -85,7 +85,7 @@ If you run the setup script on a fresh installation, fee structures will be skip
 **After completing Setup Wizard, run:**
 
 ```bash
-./setup-fee-structures.sh
+./manage.sh setup-fees
 ```
 
 This creates fee structures for all 20 CBSE programs (₹500-1200/month).
