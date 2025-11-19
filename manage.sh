@@ -860,31 +860,33 @@ def hide_non_school_modules():
     print("")
 
     workspace_hidden = 0
-    module_blocked = 0
 
     for module in modules_to_hide:
         try:
-            # Method 1: Block Module in Workspace (v15 sidebar control)
-            # Find workspace for this module
-            workspaces = frappe.get_all("Workspace",
-                filters={"module": module},
-                fields=["name", "is_hidden", "public"]
-            )
-
-            for workspace in workspaces:
-                # Hide the workspace (removes from sidebar)
-                if not workspace.is_hidden:
-                    frappe.db.set_value("Workspace", workspace.name, "is_hidden", 1)
+            # Hide workspace directly by name (some workspaces don't have module field)
+            if frappe.db.exists("Workspace", module):
+                is_hidden = frappe.db.get_value("Workspace", module, "is_hidden")
+                if not is_hidden:
+                    frappe.db.set_value("Workspace", module, "is_hidden", 1)
                     workspace_hidden += 1
-
-            # Method 2: Set Module Def as restricted
-            if frappe.db.exists("Module Def", module):
-                # Block the module at module level
-                frappe.db.set_value("Module Def", module, "restrict_to_domain", "Manufacturing")
-                module_blocked += 1
-                print(f"✓ Hidden: {module}")
+                    print(f"✓ Hidden: {module}")
+                else:
+                    print(f"⊙ Already hidden: {module}")
             else:
-                print(f"⊙ Module not found: {module}")
+                # Try finding workspaces by module field
+                workspaces = frappe.get_all("Workspace",
+                    filters={"module": module},
+                    fields=["name", "is_hidden"]
+                )
+
+                if workspaces:
+                    for workspace in workspaces:
+                        if not workspace.is_hidden:
+                            frappe.db.set_value("Workspace", workspace.name, "is_hidden", 1)
+                            workspace_hidden += 1
+                            print(f"✓ Hidden: {workspace.name} (module: {module})")
+                else:
+                    print(f"⊙ Workspace not found: {module}")
 
         except Exception as e:
             print(f"✗ Error hiding {module}: {e}")
@@ -892,9 +894,7 @@ def hide_non_school_modules():
     frappe.db.commit()
 
     print("")
-    print(f"Summary:")
-    print(f"  - {workspace_hidden} workspaces hidden")
-    print(f"  - {module_blocked} modules blocked")
+    print(f"Summary: {workspace_hidden} workspaces hidden")
     print("")
     print("⚠ Important: Users MUST logout and login to see changes")
     print("   Or clear browser cache and hard refresh (Ctrl+Shift+R)")
