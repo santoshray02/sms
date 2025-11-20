@@ -20,11 +20,14 @@ async def list_students(
     academic_year_id: Optional[int] = None,
     status: Optional[str] = None,
     search: Optional[str] = None,
+    sort_by: Optional[str] = Query(None, regex="^(admission_number|first_name|last_name|date_of_birth|created_at)$"),
+    sort_order: Optional[str] = Query("asc", regex="^(asc|desc)$"),
     db: AsyncSession = Depends(get_db),
     current_user: User = Depends(get_current_active_user)
 ):
     """
-    List students with pagination and filters
+    List students with pagination, filters, and sorting
+    Sortable fields: admission_number, first_name, last_name, date_of_birth, created_at
     """
     # Build query
     query = select(Student)
@@ -51,6 +54,17 @@ async def list_students(
     count_query = select(func.count()).select_from(query.subquery())
     total_result = await db.execute(count_query)
     total = total_result.scalar()
+
+    # Apply sorting
+    if sort_by:
+        sort_column = getattr(Student, sort_by)
+        if sort_order == "desc":
+            query = query.order_by(sort_column.desc())
+        else:
+            query = query.order_by(sort_column.asc())
+    else:
+        # Default sorting by admission_number
+        query = query.order_by(Student.admission_number.asc())
 
     # Apply pagination
     query = query.offset((page - 1) * page_size).limit(page_size)

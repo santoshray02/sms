@@ -1,4 +1,4 @@
-from sqlalchemy import Column, Integer, String, Date, Boolean, DateTime
+from sqlalchemy import Column, Integer, String, Date, Boolean, DateTime, ForeignKey
 from sqlalchemy.sql import func
 from sqlalchemy.orm import relationship
 from app.db.session import Base
@@ -29,20 +29,26 @@ class AcademicYear(Base):
 
 class Class(Base):
     """
-    Class model (Playgroup, Nursery, LKG, UKG, Class 1-12)
+    Class model (Pre-Nursery, Nursery, LKG, UKG, Class 1-12)
+    Supports streams for Class 11-12 (Science/Commerce/Arts)
     """
     __tablename__ = "classes"
 
     id = Column(Integer, primary_key=True, index=True)
     name = Column(String(50), nullable=False)  # "Class 1", "LKG", etc.
-    section = Column(String(10), nullable=True)  # "A", "B", etc.
+    section = Column(String(10), nullable=True)  # "A", "B", "Science-A", etc.
+    standard = Column(String(50), nullable=True)  # "Class 1", "Class 11", etc. (for grouping)
     display_order = Column(Integer, nullable=True)
+
+    # Stream support for Class 11-12
+    stream_id = Column(Integer, ForeignKey("streams.id"), nullable=True)
 
     created_at = Column(DateTime, server_default=func.now())
 
     # Relationships
     students = relationship("Student", back_populates="class_")
     fee_structures = relationship("FeeStructure", back_populates="class_")
+    stream = relationship("Stream", back_populates="classes")
 
     def __repr__(self):
         section_str = f" ({self.section})" if self.section else ""

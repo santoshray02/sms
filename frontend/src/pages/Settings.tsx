@@ -1,17 +1,124 @@
 import { useState, useEffect } from 'react';
 import Layout from '../components/Layout';
 import { apiClient } from '../services/api';
+import SchoolSettingsForm from '../components/SchoolSettingsForm';
+import SMSSettingsForm from '../components/SMSSettingsForm';
+import Table, { TableColumn } from '../components/Table';
+import Button from '../components/Button';
+import EmptyState from '../components/EmptyState';
+import ConfirmDialog from '../components/ConfirmDialog';
+import FormInput from '../components/FormInput';
+import { useToast } from '../contexts/ToastContext';
+import {
+  PlusIcon,
+  EditIcon,
+  TrashIcon,
+  XIcon,
+  CalendarIcon,
+  StudentsIcon,
+  SettingsIcon,
+  TransportIcon,
+} from '../components/Icons';
+import { COLORS, ELEVATION } from '../config/design-system';
+
+interface AcademicYear {
+  id: number;
+  name: string;
+  start_date: string;
+  end_date: string;
+  is_current: boolean;
+}
+
+interface Class {
+  id: number;
+  name: string;
+  section: string;
+  display_order: number;
+}
+
+interface TransportRoute {
+  id: number;
+  name: string;
+  distance_km: number;
+  monthly_fee: number;
+  created_at: string;
+}
+
+interface TransportFormData {
+  name: string;
+  distance_km: string;
+  monthly_fee: string;
+}
+
+interface AcademicYearForm {
+  name: string;
+  start_date: string;
+  end_date: string;
+  is_current: boolean;
+}
+
+interface PromotionForm {
+  from_class_id: string;
+  to_class_id: string;
+  from_academic_year_id: string;
+  to_academic_year_id: string;
+}
 
 export default function Settings() {
-  const [activeTab, setActiveTab] = useState<'academic' | 'classes' | 'transport'>('academic');
-  const [academicYears, setAcademicYears] = useState<any[]>([]);
-  const [classes, setClasses] = useState<any[]>([]);
-  const [transportRoutes, setTransportRoutes] = useState<any[]>([]);
+  const [activeTab, setActiveTab] = useState<'school' | 'sms' | 'academic' | 'classes' | 'transport'>('school');
+  const [academicYears, setAcademicYears] = useState<AcademicYear[]>([]);
+  const [classes, setClasses] = useState<Class[]>([]);
+  const [transportRoutes, setTransportRoutes] = useState<TransportRoute[]>([]);
+  const [systemSettings, setSystemSettings] = useState<any>(null);
   const [loading, setLoading] = useState(false);
 
+  // Modals
+  const [showTransportForm, setShowTransportForm] = useState(false);
+  const [showYearForm, setShowYearForm] = useState(false);
+  const [showPromotionForm, setShowPromotionForm] = useState(false);
+  const [editingRoute, setEditingRoute] = useState<TransportRoute | null>(null);
+  const [deleteDialogOpen, setDeleteDialogOpen] = useState(false);
+  const [routeToDelete, setRouteToDelete] = useState<TransportRoute | null>(null);
+  const [deleting, setDeleting] = useState(false);
+  const [submitting, setSubmitting] = useState(false);
+
+  const [transportFormData, setTransportFormData] = useState<TransportFormData>({
+    name: '',
+    distance_km: '',
+    monthly_fee: '',
+  });
+
+  const [yearFormData, setYearFormData] = useState<AcademicYearForm>({
+    name: '',
+    start_date: '',
+    end_date: '',
+    is_current: false,
+  });
+
+  const [promotionFormData, setPromotionFormData] = useState<PromotionForm>({
+    from_class_id: '',
+    to_class_id: '',
+    from_academic_year_id: '',
+    to_academic_year_id: '',
+  });
+
+  const [promotionConfirmOpen, setPromotionConfirmOpen] = useState(false);
+  const [promotionPreview, setPromotionPreview] = useState<{
+    fromClass: string;
+    toClass: string;
+    fromYear: string;
+    toYear: string;
+  } | null>(null);
+
+  const [formErrors, setFormErrors] = useState<Partial<TransportFormData>>({});
+  const toast = useToast();
+
   useEffect(() => {
-    if (activeTab === 'academic') {
+    if (activeTab === 'school' || activeTab === 'sms') {
+      fetchSystemSettings();
+    } else if (activeTab === 'academic') {
       fetchAcademicYears();
+      fetchClasses();
     } else if (activeTab === 'classes') {
       fetchClasses();
     } else if (activeTab === 'transport') {
@@ -19,13 +126,30 @@ export default function Settings() {
     }
   }, [activeTab]);
 
-  const fetchAcademicYears = async () => {
+  const fetchSystemSettings = async () => {
     setLoading(true);
     try {
-      const data = await apiClient.getAcademicYears();
-      setAcademicYears(data);
+      const data = await apiClient.getSystemSettings();
+      setSystemSettings(data);
     } catch (error) {
-      console.error('Failed to fetch academic years:', error);
+      console.error('Failed to fetch system settings:', error);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const fetchAcademicYears = async () => {
+    try {
+      setLoading(true);
+      const token = localStorage.getItem('token');
+      const response = await fetch('http://localhost:10221/api/v1/academic/academic-years', {
+        headers: { 'Authorization': `Bearer ${token}` },
+      });
+      if (!response.ok) throw new Error('Failed to fetch academic years');
+      const data = await response.json();
+      setAcademicYears(data);
+    } catch (error: any) {
+      toast.error('Failed to fetch academic years');
     } finally {
       setLoading(false);
     }
@@ -44,134 +168,448 @@ export default function Settings() {
   };
 
   const fetchTransportRoutes = async () => {
-    setLoading(true);
     try {
-      const data = await apiClient.getTransportRoutes();
+      setLoading(true);
+      const token = localStorage.getItem('token');
+      const response = await fetch('http://localhost:10221/api/v1/academic/transport-routes', {
+        headers: { 'Authorization': `Bearer ${token}` },
+      });
+      if (!response.ok) throw new Error('Failed to fetch transport routes');
+      const data = await response.json();
       setTransportRoutes(data);
-    } catch (error) {
-      console.error('Failed to fetch transport routes:', error);
+    } catch (error: any) {
+      toast.error('Failed to fetch transport routes');
     } finally {
       setLoading(false);
     }
   };
 
-  const formatCurrency = (amount: number) => {
-    return `Rs. ${(amount / 100).toLocaleString('en-IN', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
+  // Transport Route Handlers
+  const handleAddRoute = () => {
+    setEditingRoute(null);
+    setTransportFormData({ name: '', distance_km: '', monthly_fee: '' });
+    setFormErrors({});
+    setShowTransportForm(true);
   };
+
+  const handleEditRoute = (route: TransportRoute) => {
+    setEditingRoute(route);
+    setTransportFormData({
+      name: route.name,
+      distance_km: route.distance_km.toString(),
+      monthly_fee: route.monthly_fee.toString(),
+    });
+    setFormErrors({});
+    setShowTransportForm(true);
+  };
+
+  const handleDeleteRoute = (route: TransportRoute) => {
+    setRouteToDelete(route);
+    setDeleteDialogOpen(true);
+  };
+
+  const handleDeleteConfirm = async () => {
+    if (!routeToDelete) return;
+
+    try {
+      setDeleting(true);
+      const token = localStorage.getItem('token');
+      const response = await fetch(
+        `http://localhost:10221/api/v1/academic/transport-routes/${routeToDelete.id}`,
+        { method: 'DELETE', headers: { 'Authorization': `Bearer ${token}` } }
+      );
+
+      if (!response.ok) {
+        const errorData = await response.json();
+        throw new Error(errorData.detail || 'Failed to delete transport route');
+      }
+
+      toast.success(`Transport route "${routeToDelete.name}" deleted successfully`);
+      setDeleteDialogOpen(false);
+      setRouteToDelete(null);
+      fetchTransportRoutes();
+    } catch (error: any) {
+      toast.error(error.message || 'Failed to delete transport route');
+    } finally {
+      setDeleting(false);
+    }
+  };
+
+  const validateTransportForm = (): boolean => {
+    const errors: Partial<TransportFormData> = {};
+    if (!transportFormData.name.trim()) errors.name = 'Route name is required';
+    if (!transportFormData.distance_km || parseFloat(transportFormData.distance_km) <= 0) {
+      errors.distance_km = 'Distance must be greater than 0';
+    }
+    if (!transportFormData.monthly_fee || parseFloat(transportFormData.monthly_fee) <= 0) {
+      errors.monthly_fee = 'Monthly fee must be greater than 0';
+    }
+    setFormErrors(errors);
+    return Object.keys(errors).length === 0;
+  };
+
+  const handleSubmitRoute = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!validateTransportForm()) return;
+
+    try {
+      setSubmitting(true);
+      const token = localStorage.getItem('token');
+      const payload = {
+        name: transportFormData.name.trim(),
+        distance_km: parseFloat(transportFormData.distance_km),
+        monthly_fee: parseFloat(transportFormData.monthly_fee),
+      };
+
+      const url = editingRoute
+        ? `http://localhost:10221/api/v1/academic/transport-routes/${editingRoute.id}`
+        : 'http://localhost:10221/api/v1/academic/transport-routes';
+
+      const response = await fetch(url, {
+        method: editingRoute ? 'PUT' : 'POST',
+        headers: {
+          'Authorization': `Bearer ${token}`,
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify(payload),
+      });
+
+      if (!response.ok) {
+        const errorData = await response.json();
+        throw new Error(errorData.detail || `Failed to ${editingRoute ? 'update' : 'create'} transport route`);
+      }
+
+      toast.success(`Transport route ${editingRoute ? 'updated' : 'created'} successfully`);
+      setShowTransportForm(false);
+      fetchTransportRoutes();
+    } catch (error: any) {
+      toast.error(error.message || 'Failed to save transport route');
+    } finally {
+      setSubmitting(false);
+    }
+  };
+
+  // Academic Year Handlers
+  const handleCreateYear = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!yearFormData.name || !yearFormData.start_date || !yearFormData.end_date) {
+      toast.error('Please fill in all required fields');
+      return;
+    }
+
+    try {
+      setSubmitting(true);
+      const token = localStorage.getItem('token');
+      const response = await fetch('http://localhost:10221/api/v1/academic/academic-years', {
+        method: 'POST',
+        headers: {
+          'Authorization': `Bearer ${token}`,
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify(yearFormData),
+      });
+
+      if (!response.ok) {
+        const errorData = await response.json();
+        throw new Error(errorData.detail || 'Failed to create academic year');
+      }
+
+      toast.success('Academic year created successfully');
+      setShowYearForm(false);
+      setYearFormData({ name: '', start_date: '', end_date: '', is_current: false });
+      fetchAcademicYears();
+    } catch (error: any) {
+      toast.error(error.message || 'Failed to create academic year');
+    } finally {
+      setSubmitting(false);
+    }
+  };
+
+  const handleSetCurrent = async (yearId: number) => {
+    try {
+      const token = localStorage.getItem('token');
+      const response = await fetch(`http://localhost:10221/api/v1/academic/academic-years/${yearId}`, {
+        method: 'PUT',
+        headers: {
+          'Authorization': `Bearer ${token}`,
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({ is_current: true }),
+      });
+
+      if (!response.ok) throw new Error('Failed to update academic year');
+
+      toast.success('Current academic year updated');
+      fetchAcademicYears();
+    } catch (error: any) {
+      toast.error(error.message || 'Failed to update academic year');
+    }
+  };
+
+  const handlePromotionPreview = () => {
+    const { from_class_id, to_class_id, from_academic_year_id, to_academic_year_id } = promotionFormData;
+
+    if (!from_class_id || !to_class_id || !from_academic_year_id || !to_academic_year_id) {
+      toast.error('Please fill in all fields');
+      return;
+    }
+
+    const fromClass = classes.find((c) => c.id === Number(from_class_id));
+    const toClass = classes.find((c) => c.id === Number(to_class_id));
+    const fromYear = academicYears.find((y) => y.id === Number(from_academic_year_id));
+    const toYear = academicYears.find((y) => y.id === Number(to_academic_year_id));
+
+    if (!fromClass || !toClass || !fromYear || !toYear) {
+      toast.error('Invalid selection');
+      return;
+    }
+
+    setPromotionPreview({
+      fromClass: `${fromClass.name} ${fromClass.section}`,
+      toClass: `${toClass.name} ${toClass.section}`,
+      fromYear: fromYear.name,
+      toYear: toYear.name,
+    });
+    setPromotionConfirmOpen(true);
+  };
+
+  const handlePromoteStudents = async () => {
+    const { from_class_id, to_class_id, from_academic_year_id, to_academic_year_id } = promotionFormData;
+
+    try {
+      setSubmitting(true);
+      const token = localStorage.getItem('token');
+      const response = await fetch(
+        `http://localhost:10221/api/v1/academic/students/promote?from_class_id=${from_class_id}&to_class_id=${to_class_id}&from_academic_year_id=${from_academic_year_id}&to_academic_year_id=${to_academic_year_id}`,
+        {
+          method: 'POST',
+          headers: { 'Authorization': `Bearer ${token}` },
+        }
+      );
+
+      if (!response.ok) {
+        const errorData = await response.json();
+        throw new Error(errorData.detail || 'Failed to promote students');
+      }
+
+      const result = await response.json();
+      toast.success(`${result.message}: ${result.promoted_count} students promoted`);
+      setPromotionConfirmOpen(false);
+      setShowPromotionForm(false);
+      setPromotionFormData({
+        from_class_id: '',
+        to_class_id: '',
+        from_academic_year_id: '',
+        to_academic_year_id: '',
+      });
+    } catch (error: any) {
+      toast.error(error.message || 'Failed to promote students');
+    } finally {
+      setSubmitting(false);
+    }
+  };
+
+  const formatDate = (dateString: string) => {
+    return new Date(dateString).toLocaleDateString('en-IN', {
+      day: 'numeric',
+      month: 'short',
+      year: 'numeric',
+    });
+  };
+
+  const formatCurrency = (amount: number) => {
+    return `₹${amount.toFixed(2)}`;
+  };
+
+  // Table columns
+  const transportColumns: TableColumn<TransportRoute>[] = [
+    { key: 'name', label: 'Route Name', sortable: true, align: 'left' },
+    { key: 'distance_km', label: 'Distance (km)', align: 'right', render: (r) => r.distance_km.toFixed(1) },
+    { key: 'monthly_fee', label: 'Monthly Fee', align: 'right', render: (r) => formatCurrency(r.monthly_fee) },
+    {
+      key: 'actions',
+      label: 'Actions',
+      align: 'right',
+      render: (route) => (
+        <div className="flex items-center justify-end gap-2">
+          <button
+            onClick={() => handleEditRoute(route)}
+            className="text-primary-600 hover:text-primary-900 transition-colors"
+            title="Edit Route"
+          >
+            <EditIcon size={18} />
+          </button>
+          <button
+            onClick={() => handleDeleteRoute(route)}
+            className="text-red-600 hover:text-red-900 transition-colors"
+            title="Delete Route"
+          >
+            <TrashIcon size={18} />
+          </button>
+        </div>
+      ),
+    },
+  ];
+
+  const yearColumns: TableColumn<AcademicYear>[] = [
+    { key: 'name', label: 'Academic Year', sortable: true, align: 'left' },
+    { key: 'start_date', label: 'Start Date', align: 'left', render: (y) => formatDate(y.start_date) },
+    { key: 'end_date', label: 'End Date', align: 'left', render: (y) => formatDate(y.end_date) },
+    {
+      key: 'is_current',
+      label: 'Status',
+      align: 'center',
+      render: (year) => (
+        <div className="flex items-center justify-center gap-2">
+          {year.is_current ? (
+            <span className="px-3 py-1 inline-flex text-xs leading-5 font-semibold rounded-full bg-green-100 text-green-800">
+              Current
+            </span>
+          ) : (
+            <Button variant="outline" size="sm" onClick={() => handleSetCurrent(year.id)}>
+              Set as Current
+            </Button>
+          )}
+        </div>
+      ),
+    },
+  ];
 
   return (
     <Layout>
       <div className="space-y-6">
         {/* Header */}
         <div>
-          <h1 className="text-2xl font-bold text-gray-900">Academic Settings</h1>
+          <h1 className="text-2xl font-bold text-gray-900">System Settings</h1>
           <p className="mt-1 text-sm text-gray-500">
-            Manage academic years, classes, and transport routes
+            Manage school information, academic setup, and transport routes
           </p>
         </div>
 
         {/* Tabs */}
         <div className="bg-white shadow rounded-lg">
           <div className="border-b border-gray-200">
-            <nav className="flex -mb-px">
+            <nav className="flex -mb-px overflow-x-auto">
+              <button
+                onClick={() => setActiveTab('school')}
+                className={`px-6 py-3 border-b-2 font-medium text-sm whitespace-nowrap flex items-center gap-2 ${
+                  activeTab === 'school'
+                    ? 'border-primary-500 text-primary-600'
+                    : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300'
+                }`}
+              >
+                <SettingsIcon size={16} />
+                School Info
+              </button>
+              <button
+                onClick={() => setActiveTab('sms')}
+                className={`px-6 py-3 border-b-2 font-medium text-sm whitespace-nowrap ${
+                  activeTab === 'sms'
+                    ? 'border-primary-500 text-primary-600'
+                    : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300'
+                }`}
+              >
+                📱 SMS Settings
+              </button>
               <button
                 onClick={() => setActiveTab('academic')}
-                className={`px-6 py-3 border-b-2 font-medium text-sm ${
+                className={`px-6 py-3 border-b-2 font-medium text-sm whitespace-nowrap flex items-center gap-2 ${
                   activeTab === 'academic'
                     ? 'border-primary-500 text-primary-600'
                     : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300'
                 }`}
               >
+                <CalendarIcon size={16} />
                 Academic Years
               </button>
               <button
                 onClick={() => setActiveTab('classes')}
-                className={`px-6 py-3 border-b-2 font-medium text-sm ${
+                className={`px-6 py-3 border-b-2 font-medium text-sm whitespace-nowrap ${
                   activeTab === 'classes'
                     ? 'border-primary-500 text-primary-600'
                     : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300'
                 }`}
               >
-                Classes
+                🏫 Classes
               </button>
               <button
                 onClick={() => setActiveTab('transport')}
-                className={`px-6 py-3 border-b-2 font-medium text-sm ${
+                className={`px-6 py-3 border-b-2 font-medium text-sm whitespace-nowrap flex items-center gap-2 ${
                   activeTab === 'transport'
                     ? 'border-primary-500 text-primary-600'
                     : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300'
                 }`}
               >
-                Transport Routes
+                <TransportIcon size={16} />
+                Transport
               </button>
             </nav>
           </div>
 
           {/* Tab Content */}
           <div className="p-6">
-            {loading ? (
+            {loading && activeTab !== 'school' && activeTab !== 'sms' ? (
               <div className="text-center py-12">
                 <div className="text-gray-600">Loading...</div>
               </div>
             ) : (
               <>
+                {/* School Information Tab */}
+                {activeTab === 'school' && systemSettings && (
+                  <SchoolSettingsForm
+                    settings={systemSettings.school}
+                    onUpdate={fetchSystemSettings}
+                  />
+                )}
+
+                {/* SMS Settings Tab */}
+                {activeTab === 'sms' && systemSettings && (
+                  <SMSSettingsForm
+                    settings={systemSettings.sms}
+                    onUpdate={fetchSystemSettings}
+                  />
+                )}
+
                 {/* Academic Years Tab */}
                 {activeTab === 'academic' && (
-                  <div>
+                  <div className="space-y-4">
+                    <div className="flex justify-between items-center">
+                      <h2 className="text-lg font-semibold text-gray-900">Academic Years & Student Promotion</h2>
+                      <div className="flex gap-3">
+                        <Button
+                          variant="outline"
+                          icon={<StudentsIcon size={16} />}
+                          onClick={() => setShowPromotionForm(true)}
+                        >
+                          Promote Students
+                        </Button>
+                        <Button
+                          variant="primary"
+                          icon={<PlusIcon size={16} />}
+                          onClick={() => setShowYearForm(true)}
+                        >
+                          Add Academic Year
+                        </Button>
+                      </div>
+                    </div>
+
                     {academicYears.length === 0 ? (
-                      <div className="text-center py-12">
-                        <div className="text-4xl mb-4">📅</div>
-                        <p className="text-gray-500">No academic years found</p>
-                      </div>
+                      <EmptyState
+                        icon={<CalendarIcon size={64} color={COLORS.gray[400]} />}
+                        title="No Academic Years Found"
+                        description="Get started by creating your first academic year."
+                        action={
+                          <Button
+                            variant="primary"
+                            icon={<PlusIcon size={16} />}
+                            onClick={() => setShowYearForm(true)}
+                          >
+                            Create Academic Year
+                          </Button>
+                        }
+                      />
                     ) : (
-                      <div className="overflow-x-auto">
-                        <table className="min-w-full divide-y divide-gray-200">
-                          <thead className="bg-gray-50">
-                            <tr>
-                              <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">
-                                Academic Year
-                              </th>
-                              <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">
-                                Start Date
-                              </th>
-                              <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">
-                                End Date
-                              </th>
-                              <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">
-                                Status
-                              </th>
-                            </tr>
-                          </thead>
-                          <tbody className="bg-white divide-y divide-gray-200">
-                            {academicYears.map((year) => (
-                              <tr key={year.id} className="hover:bg-gray-50">
-                                <td className="px-6 py-4 whitespace-nowrap">
-                                  <div className="text-sm font-medium text-gray-900">
-                                    {year.name}
-                                  </div>
-                                </td>
-                                <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
-                                  {new Date(year.start_date).toLocaleDateString()}
-                                </td>
-                                <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
-                                  {new Date(year.end_date).toLocaleDateString()}
-                                </td>
-                                <td className="px-6 py-4 whitespace-nowrap">
-                                  {year.is_current ? (
-                                    <span className="px-2 py-1 inline-flex text-xs leading-5 font-semibold rounded-full bg-green-100 text-green-800">
-                                      Current
-                                    </span>
-                                  ) : (
-                                    <span className="px-2 py-1 inline-flex text-xs leading-5 font-semibold rounded-full bg-gray-100 text-gray-800">
-                                      Inactive
-                                    </span>
-                                  )}
-                                </td>
-                              </tr>
-                            ))}
-                          </tbody>
-                        </table>
-                      </div>
+                      <Table columns={yearColumns} data={academicYears} zebraStripe hover />
                     )}
                   </div>
                 )}
@@ -213,47 +651,37 @@ export default function Settings() {
 
                 {/* Transport Routes Tab */}
                 {activeTab === 'transport' && (
-                  <div>
+                  <div className="space-y-4">
+                    <div className="flex justify-between items-center">
+                      <h2 className="text-lg font-semibold text-gray-900">
+                        Transport Routes ({transportRoutes.length} routes)
+                      </h2>
+                      <Button
+                        variant="primary"
+                        icon={<PlusIcon size={16} />}
+                        onClick={handleAddRoute}
+                      >
+                        Add Route
+                      </Button>
+                    </div>
+
                     {transportRoutes.length === 0 ? (
-                      <div className="text-center py-12">
-                        <div className="text-4xl mb-4">🚌</div>
-                        <p className="text-gray-500">No transport routes found</p>
-                      </div>
+                      <EmptyState
+                        icon={<TransportIcon size={64} color={COLORS.gray[400]} />}
+                        title="No Transport Routes Found"
+                        description="Get started by adding your first transport route."
+                        action={
+                          <Button
+                            variant="primary"
+                            icon={<PlusIcon size={16} />}
+                            onClick={handleAddRoute}
+                          >
+                            Add First Route
+                          </Button>
+                        }
+                      />
                     ) : (
-                      <div className="overflow-x-auto">
-                        <table className="min-w-full divide-y divide-gray-200">
-                          <thead className="bg-gray-50">
-                            <tr>
-                              <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">
-                                Route Name
-                              </th>
-                              <th className="px-6 py-3 text-right text-xs font-medium text-gray-500 uppercase">
-                                Distance (km)
-                              </th>
-                              <th className="px-6 py-3 text-right text-xs font-medium text-gray-500 uppercase">
-                                Monthly Fee
-                              </th>
-                            </tr>
-                          </thead>
-                          <tbody className="bg-white divide-y divide-gray-200">
-                            {transportRoutes.map((route) => (
-                              <tr key={route.id} className="hover:bg-gray-50">
-                                <td className="px-6 py-4 whitespace-nowrap">
-                                  <div className="text-sm font-medium text-gray-900">
-                                    {route.name}
-                                  </div>
-                                </td>
-                                <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500 text-right">
-                                  {route.distance_km}
-                                </td>
-                                <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900 text-right font-medium">
-                                  {formatCurrency(route.monthly_fee)}
-                                </td>
-                              </tr>
-                            ))}
-                          </tbody>
-                        </table>
-                      </div>
+                      <Table columns={transportColumns} data={transportRoutes} zebraStripe hover />
                     )}
                   </div>
                 )}
@@ -261,16 +689,353 @@ export default function Settings() {
             )}
           </div>
         </div>
-
-        {/* Info Box */}
-        <div className="bg-blue-50 border border-blue-200 rounded-lg p-4">
-          <h3 className="text-sm font-medium text-blue-900 mb-2">Information</h3>
-          <p className="text-sm text-blue-700">
-            This page displays the current academic configuration. To add or modify these settings,
-            please use the backend admin interface or API endpoints directly.
-          </p>
-        </div>
       </div>
+
+      {/* Transport Route Form Modal */}
+      {showTransportForm && (
+        <div
+          className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4"
+          onClick={() => setShowTransportForm(false)}
+        >
+          <div
+            className="bg-white rounded-lg shadow-xl max-w-md w-full p-6"
+            style={{ boxShadow: ELEVATION.xl }}
+            onClick={(e) => e.stopPropagation()}
+          >
+            <div className="flex items-center justify-between mb-4">
+              <h2 className="text-xl font-bold text-gray-900">
+                {editingRoute ? 'Edit Transport Route' : 'Add New Transport Route'}
+              </h2>
+              <button
+                onClick={() => setShowTransportForm(false)}
+                className="text-gray-400 hover:text-gray-600 transition-colors"
+              >
+                <XIcon size={24} />
+              </button>
+            </div>
+
+            <form onSubmit={handleSubmitRoute} className="space-y-4">
+              <FormInput
+                label="Route Name"
+                type="text"
+                value={transportFormData.name}
+                onChange={(e) => setTransportFormData({ ...transportFormData, name: e.target.value })}
+                placeholder="e.g., Behrampur, Paharpur Tower"
+                required
+                error={formErrors.name}
+              />
+
+              <FormInput
+                label="Distance (km)"
+                type="number"
+                step="0.1"
+                value={transportFormData.distance_km}
+                onChange={(e) => setTransportFormData({ ...transportFormData, distance_km: e.target.value })}
+                placeholder="e.g., 10"
+                required
+                error={formErrors.distance_km}
+              />
+
+              <FormInput
+                label="Monthly Fee (₹)"
+                type="number"
+                step="0.01"
+                value={transportFormData.monthly_fee}
+                onChange={(e) => setTransportFormData({ ...transportFormData, monthly_fee: e.target.value })}
+                placeholder="e.g., 800"
+                required
+                error={formErrors.monthly_fee}
+                helperText="Enter the amount in rupees"
+              />
+
+              <div className="flex gap-3 pt-4">
+                <Button
+                  type="button"
+                  variant="outline"
+                  onClick={() => setShowTransportForm(false)}
+                  disabled={submitting}
+                  className="flex-1"
+                >
+                  Cancel
+                </Button>
+                <Button type="submit" variant="primary" loading={submitting} className="flex-1">
+                  {editingRoute ? 'Update Route' : 'Add Route'}
+                </Button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
+
+      {/* Academic Year Form Modal */}
+      {showYearForm && (
+        <div
+          className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4"
+          onClick={() => setShowYearForm(false)}
+        >
+          <div
+            className="bg-white rounded-lg shadow-xl max-w-md w-full p-6"
+            style={{ boxShadow: ELEVATION.xl }}
+            onClick={(e) => e.stopPropagation()}
+          >
+            <div className="flex items-center justify-between mb-4">
+              <h2 className="text-xl font-bold text-gray-900">Create Academic Year</h2>
+              <button
+                onClick={() => setShowYearForm(false)}
+                className="text-gray-400 hover:text-gray-600 transition-colors"
+              >
+                <XIcon size={24} />
+              </button>
+            </div>
+
+            <form onSubmit={handleCreateYear} className="space-y-4">
+              <FormInput
+                label="Academic Year Name"
+                type="text"
+                value={yearFormData.name}
+                onChange={(e) => setYearFormData({ ...yearFormData, name: e.target.value })}
+                placeholder="e.g., 2025-26"
+                required
+                helperText="Format: YYYY-YY"
+              />
+
+              <FormInput
+                label="Start Date"
+                type="date"
+                value={yearFormData.start_date}
+                onChange={(e) => setYearFormData({ ...yearFormData, start_date: e.target.value })}
+                required
+              />
+
+              <FormInput
+                label="End Date"
+                type="date"
+                value={yearFormData.end_date}
+                onChange={(e) => setYearFormData({ ...yearFormData, end_date: e.target.value })}
+                required
+              />
+
+              <div className="flex items-center gap-2">
+                <input
+                  type="checkbox"
+                  id="is_current"
+                  checked={yearFormData.is_current}
+                  onChange={(e) => setYearFormData({ ...yearFormData, is_current: e.target.checked })}
+                  className="w-4 h-4 text-primary-600 border-gray-300 rounded focus:ring-primary-500"
+                />
+                <label htmlFor="is_current" className="text-sm font-medium text-gray-700">
+                  Set as current academic year
+                </label>
+              </div>
+
+              <div className="flex gap-3 pt-4">
+                <Button
+                  type="button"
+                  variant="outline"
+                  onClick={() => setShowYearForm(false)}
+                  disabled={submitting}
+                  className="flex-1"
+                >
+                  Cancel
+                </Button>
+                <Button type="submit" variant="primary" loading={submitting} className="flex-1">
+                  Create Year
+                </Button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
+
+      {/* Student Promotion Form Modal */}
+      {showPromotionForm && (
+        <div
+          className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4"
+          onClick={() => setShowPromotionForm(false)}
+        >
+          <div
+            className="bg-white rounded-lg shadow-xl max-w-2xl w-full p-6"
+            style={{ boxShadow: ELEVATION.xl }}
+            onClick={(e) => e.stopPropagation()}
+          >
+            <div className="flex items-center justify-between mb-4">
+              <h2 className="text-xl font-bold text-gray-900">Promote Students</h2>
+              <button
+                onClick={() => setShowPromotionForm(false)}
+                className="text-gray-400 hover:text-gray-600 transition-colors"
+              >
+                <XIcon size={24} />
+              </button>
+            </div>
+
+            <div className="space-y-6">
+              <div className="border border-gray-200 rounded-lg p-4 bg-gray-50">
+                <h3 className="text-sm font-semibold text-gray-700 mb-3">From (Current)</h3>
+                <div className="grid grid-cols-2 gap-4">
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 mb-2">Academic Year</label>
+                    <select
+                      value={promotionFormData.from_academic_year_id}
+                      onChange={(e) =>
+                        setPromotionFormData({ ...promotionFormData, from_academic_year_id: e.target.value })
+                      }
+                      className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-primary-500"
+                    >
+                      <option value="">Select Year</option>
+                      {academicYears.map((year) => (
+                        <option key={year.id} value={year.id}>
+                          {year.name}
+                        </option>
+                      ))}
+                    </select>
+                  </div>
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 mb-2">Class</label>
+                    <select
+                      value={promotionFormData.from_class_id}
+                      onChange={(e) => setPromotionFormData({ ...promotionFormData, from_class_id: e.target.value })}
+                      className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-primary-500"
+                    >
+                      <option value="">Select Class</option>
+                      {classes.map((cls) => (
+                        <option key={cls.id} value={cls.id}>
+                          {cls.name} {cls.section}
+                        </option>
+                      ))}
+                    </select>
+                  </div>
+                </div>
+              </div>
+
+              <div className="flex justify-center">
+                <div className="text-2xl text-gray-400">↓</div>
+              </div>
+
+              <div className="border border-green-200 rounded-lg p-4 bg-green-50">
+                <h3 className="text-sm font-semibold text-green-700 mb-3">To (New)</h3>
+                <div className="grid grid-cols-2 gap-4">
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 mb-2">Academic Year</label>
+                    <select
+                      value={promotionFormData.to_academic_year_id}
+                      onChange={(e) =>
+                        setPromotionFormData({ ...promotionFormData, to_academic_year_id: e.target.value })
+                      }
+                      className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-green-500"
+                    >
+                      <option value="">Select Year</option>
+                      {academicYears.map((year) => (
+                        <option key={year.id} value={year.id}>
+                          {year.name}
+                        </option>
+                      ))}
+                    </select>
+                  </div>
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 mb-2">Class</label>
+                    <select
+                      value={promotionFormData.to_class_id}
+                      onChange={(e) => setPromotionFormData({ ...promotionFormData, to_class_id: e.target.value })}
+                      className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-green-500"
+                    >
+                      <option value="">Select Class</option>
+                      {classes.map((cls) => (
+                        <option key={cls.id} value={cls.id}>
+                          {cls.name} {cls.section}
+                        </option>
+                      ))}
+                    </select>
+                  </div>
+                </div>
+              </div>
+
+              <div className="flex gap-3 pt-4">
+                <Button
+                  type="button"
+                  variant="outline"
+                  onClick={() => setShowPromotionForm(false)}
+                  className="flex-1"
+                >
+                  Cancel
+                </Button>
+                <Button
+                  type="button"
+                  variant="primary"
+                  onClick={handlePromotionPreview}
+                  className="flex-1"
+                >
+                  Preview & Promote
+                </Button>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Delete Confirmation Dialog */}
+      {routeToDelete && (
+        <ConfirmDialog
+          isOpen={deleteDialogOpen}
+          onClose={() => {
+            setDeleteDialogOpen(false);
+            setRouteToDelete(null);
+          }}
+          onConfirm={handleDeleteConfirm}
+          title="Delete Transport Route"
+          message={
+            <>
+              Are you sure you want to delete the transport route <strong>"{routeToDelete.name}"</strong>?
+              <br />
+              <br />
+              This action cannot be undone. Students assigned to this route will need to be reassigned.
+            </>
+          }
+          confirmText="Delete Route"
+          variant="danger"
+          loading={deleting}
+        />
+      )}
+
+      {/* Promotion Confirmation Dialog */}
+      {promotionPreview && (
+        <ConfirmDialog
+          isOpen={promotionConfirmOpen}
+          onClose={() => {
+            setPromotionConfirmOpen(false);
+            setPromotionPreview(null);
+          }}
+          onConfirm={handlePromoteStudents}
+          title="Confirm Student Promotion"
+          message={
+            <>
+              <p className="mb-4">
+                You are about to promote <strong>all active students</strong> from:
+              </p>
+              <div className="bg-gray-50 p-4 rounded-lg space-y-2 mb-4">
+                <div className="flex justify-between">
+                  <span className="text-gray-600">From:</span>
+                  <span className="font-semibold">
+                    {promotionPreview.fromClass} ({promotionPreview.fromYear})
+                  </span>
+                </div>
+                <div className="flex justify-between">
+                  <span className="text-gray-600">To:</span>
+                  <span className="font-semibold text-green-700">
+                    {promotionPreview.toClass} ({promotionPreview.toYear})
+                  </span>
+                </div>
+              </div>
+              <p className="text-sm text-gray-600">
+                This action will update the class and academic year for all active students. This cannot be undone
+                easily.
+              </p>
+            </>
+          }
+          confirmText="Promote Students"
+          variant="warning"
+          loading={submitting}
+        />
+      )}
     </Layout>
   );
 }

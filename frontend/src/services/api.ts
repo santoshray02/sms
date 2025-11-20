@@ -215,6 +215,193 @@ class ApiClient {
     const response = await this.client.get('/reports/sms-logs', { params });
     return response.data;
   }
+
+  // Guardians
+  async getGuardians(params?: {
+    page?: number;
+    page_size?: number;
+    search?: string;
+    is_active?: boolean;
+  }) {
+    const response = await this.client.get('/guardians', { params });
+    return response.data;
+  }
+
+  async getGuardian(id: number) {
+    const response = await this.client.get(`/guardians/${id}`);
+    return response.data;
+  }
+
+  async getGuardianStudents(id: number) {
+    const response = await this.client.get(`/guardians/${id}/students`);
+    return response.data;
+  }
+
+  async createGuardian(data: any) {
+    const response = await this.client.post('/guardians', data);
+    return response.data;
+  }
+
+  async updateGuardian(id: number, data: any) {
+    const response = await this.client.put(`/guardians/${id}`, data);
+    return response.data;
+  }
+
+  async deleteGuardian(id: number) {
+    await this.client.delete(`/guardians/${id}`);
+  }
+
+  // Streams
+  async getStreams(is_active?: boolean) {
+    const params = is_active !== undefined ? { is_active } : {};
+    const response = await this.client.get('/streams', { params });
+    return response.data;
+  }
+
+  async getStream(id: number) {
+    const response = await this.client.get(`/streams/${id}`);
+    return response.data;
+  }
+
+  async createStream(data: any) {
+    const response = await this.client.post('/streams', data);
+    return response.data;
+  }
+
+  async updateStream(id: number, data: any) {
+    const response = await this.client.put(`/streams/${id}`, data);
+    return response.data;
+  }
+
+  async deleteStream(id: number) {
+    await this.client.delete(`/streams/${id}`);
+  }
+
+  // Concessions
+  async getConcessions(params?: {
+    page?: number;
+    page_size?: number;
+    student_id?: number;
+    concession_type?: string;
+    is_active?: boolean;
+  }) {
+    const response = await this.client.get('/concessions', { params });
+    return response.data;
+  }
+
+  async getActiveConcessions(params?: { page?: number; page_size?: number }) {
+    const response = await this.client.get('/concessions/active', { params });
+    return response.data;
+  }
+
+  async getStudentConcessions(studentId: number, includeExpired?: boolean) {
+    const params = includeExpired ? { include_expired: true } : {};
+    const response = await this.client.get(`/concessions/student/${studentId}`, { params });
+    return response.data;
+  }
+
+  async getConcession(id: number) {
+    const response = await this.client.get(`/concessions/${id}`);
+    return response.data;
+  }
+
+  async createConcession(data: any) {
+    const response = await this.client.post('/concessions', data);
+    return response.data;
+  }
+
+  async updateConcession(id: number, data: any) {
+    const response = await this.client.put(`/concessions/${id}`, data);
+    return response.data;
+  }
+
+  async deleteConcession(id: number) {
+    await this.client.delete(`/concessions/${id}`);
+  }
+
+  // Attendance
+  async getAttendance(params?: {
+    page?: number;
+    page_size?: number;
+    student_id?: number;
+    class_id?: number;
+    date_from?: string;
+    date_to?: string;
+    status?: string;
+  }) {
+    const response = await this.client.get('/attendance', { params });
+    return response.data;
+  }
+
+  async getAttendanceByDate(date: string, classId?: number) {
+    const params = classId ? { class_id: classId } : {};
+    const response = await this.client.get(`/attendance/date/${date}`, { params });
+    return response.data;
+  }
+
+  async getStudentAttendancePercentage(
+    studentId: number,
+    params?: { date_from?: string; date_to?: string }
+  ) {
+    const response = await this.client.get(`/attendance/student/${studentId}/percentage`, {
+      params,
+    });
+    return response.data;
+  }
+
+  async createAttendance(data: any) {
+    const response = await this.client.post('/attendance', data);
+    return response.data;
+  }
+
+  async createBulkAttendance(data: {
+    class_id: number;
+    date: string;
+    marked_by: number;
+    attendance_data: Array<{ student_id: number; status: string; remarks?: string }>;
+  }) {
+    const response = await this.client.post('/attendance/bulk', data);
+    return response.data;
+  }
+
+  async updateAttendance(id: number, data: any) {
+    const response = await this.client.put(`/attendance/${id}`, data);
+    return response.data;
+  }
+
+  async deleteAttendance(id: number) {
+    await this.client.delete(`/attendance/${id}`);
+  }
+
+  // System Settings
+  async getSystemSettings() {
+    const response = await this.client.get('/settings/');
+    return response.data;
+  }
+
+  async updateSchoolSettings(data: {
+    school_name?: string;
+    school_code?: string;
+    affiliation_number?: string;
+    school_address?: string;
+    principal_name?: string;
+    principal_signature_url?: string;
+    school_logo_url?: string;
+  }) {
+    const response = await this.client.put('/settings/school', data);
+    return response.data;
+  }
+
+  async updateSMSSettings(data: {
+    sms_provider?: string;
+    sms_api_key?: string;
+    sms_sender_id?: string;
+    sms_balance?: number;
+    sms_enabled?: boolean;
+  }) {
+    const response = await this.client.put('/settings/sms', data);
+    return response.data;
+  }
 }
 
 export const apiClient = new ApiClient();

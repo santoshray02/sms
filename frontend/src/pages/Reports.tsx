@@ -90,8 +90,11 @@ export default function Reports() {
     }
   };
 
-  const formatCurrency = (amount: number) => {
-    return `Rs. ${(amount / 100).toLocaleString('en-IN', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
+  const formatCurrency = (amount: number | null | undefined) => {
+    if (amount === null || amount === undefined || isNaN(amount)) {
+      return 'Rs. 0.00';
+    }
+    return `Rs. ${amount.toLocaleString('en-IN', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
   };
 
   return (
@@ -203,7 +206,7 @@ export default function Reports() {
                       <div className="bg-purple-50 border border-purple-200 rounded-lg p-4">
                         <div className="text-purple-700 text-sm font-medium mb-1">Collection %</div>
                         <div className="text-2xl font-bold text-purple-900">
-                          {collectionSummary.collection_percentage.toFixed(1)}%
+                          {(collectionSummary.collection_percentage || 0).toFixed(1)}%
                         </div>
                       </div>
                     </div>
@@ -212,12 +215,12 @@ export default function Reports() {
                     <div className="bg-gray-50 rounded-lg p-4">
                       <div className="flex justify-between text-sm text-gray-600 mb-2">
                         <span>Collection Progress</span>
-                        <span>{collectionSummary.collection_percentage.toFixed(1)}%</span>
+                        <span>{(collectionSummary.collection_percentage || 0).toFixed(1)}%</span>
                       </div>
                       <div className="w-full bg-gray-200 rounded-full h-4">
                         <div
                           className="bg-gradient-to-r from-green-500 to-green-600 h-4 rounded-full transition-all duration-500"
-                          style={{ width: `${collectionSummary.collection_percentage}%` }}
+                          style={{ width: `${Math.min(collectionSummary.collection_percentage || 0, 100)}%` }}
                         />
                       </div>
                     </div>

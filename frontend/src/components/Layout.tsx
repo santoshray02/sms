@@ -1,6 +1,10 @@
 import { ReactNode, useState } from 'react';
 import { Link, useLocation, useNavigate } from 'react-router-dom';
 import { useAuth } from '../contexts/AuthContext';
+import { getMenuItemsForUser } from '../config/menu';
+import { APP_CONFIG } from '../config/app';
+import { LogoutIcon, ChevronDownIcon, MenuIcon, XIcon } from './Icons';
+import { COLORS, ELEVATION, TRANSITIONS } from '../config/design-system';
 
 interface LayoutProps {
   children: ReactNode;
@@ -11,78 +15,117 @@ export default function Layout({ children }: LayoutProps) {
   const location = useLocation();
   const navigate = useNavigate();
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
+  const [userMenuOpen, setUserMenuOpen] = useState(false);
 
   const handleLogout = async () => {
     await logout();
     navigate('/login');
   };
 
-  const navigation = [
-    { name: 'Dashboard', href: '/dashboard', icon: '📊' },
-    { name: 'Students', href: '/students', icon: '👨‍🎓' },
-    { name: 'Fees', href: '/fees', icon: '💰' },
-    { name: 'Payments', href: '/payments', icon: '💳' },
-    { name: 'Reports', href: '/reports', icon: '📈' },
-  ];
-
-  if (user?.role === 'admin') {
-    navigation.push({ name: 'Settings', href: '/settings', icon: '⚙️' });
-  }
+  // Get menu items based on user role
+  const navigation = getMenuItemsForUser(user?.role);
 
   return (
     <div className="min-h-screen bg-gray-100">
       {/* Navigation */}
-      <nav className="bg-white shadow-sm">
-        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+      <nav
+        className="bg-white sticky top-0 z-50"
+        style={{ boxShadow: ELEVATION.md }}
+      >
+        <div className="mx-auto px-3 sm:px-4 lg:px-6">
           <div className="flex justify-between h-16">
-            <div className="flex">
-              <div className="flex-shrink-0 flex items-center">
-                <h1 className="text-xl font-bold text-primary-600">
-                  School Management
-                </h1>
+            {/* Logo and Navigation */}
+            <div className="flex items-center flex-1 min-w-0">
+              {/* Logo */}
+              <div className="flex-shrink-0">
+                <Link to="/dashboard" className="flex items-center space-x-2 mr-4 lg:mr-8">
+                  <div className="h-8 w-8 bg-primary-600 rounded-lg flex items-center justify-center flex-shrink-0">
+                    <span className="text-white font-bold text-sm">{APP_CONFIG.shortName}</span>
+                  </div>
+                  <h1 className="text-lg lg:text-xl font-bold text-primary-600 hidden sm:block whitespace-nowrap">
+                    {APP_CONFIG.name}
+                  </h1>
+                </Link>
               </div>
-              <div className="hidden sm:ml-6 sm:flex sm:space-x-8">
+
+              {/* Desktop Navigation - Compact on smaller screens */}
+              <div className="hidden lg:flex lg:flex-1 lg:items-center lg:space-x-1 xl:space-x-4 overflow-x-auto">
                 {navigation.map((item) => (
                   <Link
                     key={item.name}
                     to={item.href}
                     className={`${
                       location.pathname === item.href
-                        ? 'border-primary-500 text-gray-900'
-                        : 'border-transparent text-gray-500 hover:border-gray-300 hover:text-gray-700'
-                    } inline-flex items-center px-1 pt-1 border-b-2 text-sm font-medium`}
+                        ? 'border-primary-500 text-gray-900 bg-primary-50'
+                        : 'border-transparent text-gray-600 hover:border-gray-300 hover:text-gray-900 hover:bg-gray-50'
+                    } inline-flex items-center px-2 xl:px-3 py-2 border-b-2 text-xs xl:text-sm font-medium transition-all group whitespace-nowrap rounded-t`}
+                    title={item.description}
                   >
-                    <span className="mr-2">{item.icon}</span>
-                    {item.name}
+                    <span className="mr-1.5 xl:mr-2 flex-shrink-0 group-hover:scale-110 transition-transform">{item.icon}</span>
+                    <span className="truncate">{item.name}</span>
                   </Link>
                 ))}
               </div>
             </div>
-            <div className="hidden sm:ml-6 sm:flex sm:items-center">
-              <div className="ml-3 relative">
-                <div className="flex items-center space-x-4">
-                  <span className="text-sm text-gray-700">
-                    {user?.full_name}
-                    <span className="text-xs text-gray-500 ml-1">
-                      ({user?.role})
+
+            {/* Right Side - User Menu */}
+            <div className="flex items-center space-x-2">
+              {/* Desktop User Menu */}
+              <div className="hidden lg:block relative">
+                <button
+                  onClick={() => setUserMenuOpen(!userMenuOpen)}
+                  className="flex items-center space-x-2 p-2 rounded-lg hover:bg-gray-100 transition-colors focus:outline-none focus:ring-2 focus:ring-primary-500"
+                  onBlur={() => setTimeout(() => setUserMenuOpen(false), 200)}
+                >
+                  <div className="h-8 w-8 rounded-full bg-primary-100 flex items-center justify-center flex-shrink-0">
+                    <span className="text-primary-600 font-semibold text-sm">
+                      {user?.full_name?.charAt(0)?.toUpperCase()}
                     </span>
-                  </span>
-                  <button
-                    onClick={handleLogout}
-                    className="bg-white p-2 rounded-md text-gray-400 hover:text-gray-500 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-primary-500"
+                  </div>
+                  <div className="hidden xl:block text-left">
+                    <div className="text-sm font-medium text-gray-700 leading-tight">
+                      {user?.full_name}
+                    </div>
+                    <div className="text-xs text-gray-500 capitalize">
+                      {user?.role}
+                    </div>
+                  </div>
+                  <ChevronDownIcon size={16} color={COLORS.gray[400]} />
+                </button>
+
+                {/* Dropdown Menu */}
+                {userMenuOpen && (
+                  <div
+                    className="absolute right-0 mt-2 w-48 bg-white rounded-lg shadow-lg border border-gray-200 py-1 z-50"
+                    onMouseDown={(e) => e.preventDefault()}
                   >
-                    <span className="text-sm">Logout</span>
-                  </button>
-                </div>
+                    <div className="px-4 py-2 border-b border-gray-100">
+                      <div className="text-sm font-medium text-gray-900">{user?.full_name}</div>
+                      <div className="text-xs text-gray-500">{user?.email}</div>
+                      <div className="text-xs text-gray-400 mt-1 capitalize">Role: {user?.role}</div>
+                    </div>
+                    <button
+                      onClick={(e) => {
+                        e.preventDefault();
+                        setUserMenuOpen(false);
+                        handleLogout();
+                      }}
+                      className="w-full text-left px-4 py-2 text-sm text-gray-700 hover:bg-gray-100 flex items-center space-x-2"
+                    >
+                      <LogoutIcon size={16} />
+                      <span>Logout</span>
+                    </button>
+                  </div>
+                )}
               </div>
-            </div>
-            <div className="-mr-2 flex items-center sm:hidden">
+
+              {/* Mobile Menu Button */}
               <button
                 onClick={() => setMobileMenuOpen(!mobileMenuOpen)}
-                className="inline-flex items-center justify-center p-2 rounded-md text-gray-400 hover:text-gray-500 hover:bg-gray-100 focus:outline-none focus:ring-2 focus:ring-inset focus:ring-primary-500"
+                className="lg:hidden inline-flex items-center justify-center p-2 rounded-md text-gray-400 hover:text-gray-500 hover:bg-gray-100 focus:outline-none focus:ring-2 focus:ring-inset focus:ring-primary-500"
               >
                 <span className="sr-only">Open main menu</span>
-                {mobileMenuOpen ? '✕' : '☰'}
+                {mobileMenuOpen ? <XIcon size={24} /> : <MenuIcon size={24} />}
               </button>
             </div>
           </div>
@@ -90,7 +133,7 @@ export default function Layout({ children }: LayoutProps) {
 
         {/* Mobile menu */}
         {mobileMenuOpen && (
-          <div className="sm:hidden">
+          <div className="lg:hidden">
             <div className="pt-2 pb-3 space-y-1">
               {navigation.map((item) => (
                 <Link
@@ -99,12 +142,17 @@ export default function Layout({ children }: LayoutProps) {
                   className={`${
                     location.pathname === item.href
                       ? 'bg-primary-50 border-primary-500 text-primary-700'
-                      : 'border-transparent text-gray-500 hover:bg-gray-50 hover:border-gray-300 hover:text-gray-700'
-                  } block pl-3 pr-4 py-2 border-l-4 text-base font-medium`}
+                      : 'border-transparent text-gray-600 hover:bg-gray-50 hover:border-gray-300 hover:text-gray-900'
+                  } flex items-center pl-3 pr-4 py-3 border-l-4 text-base font-medium transition-colors`}
                   onClick={() => setMobileMenuOpen(false)}
                 >
-                  <span className="mr-2">{item.icon}</span>
-                  {item.name}
+                  <span className="mr-3 flex-shrink-0">{item.icon}</span>
+                  <div className="flex-1">
+                    <div className="font-medium">{item.name}</div>
+                    {item.description && (
+                      <div className="text-xs text-gray-500 mt-0.5">{item.description}</div>
+                    )}
+                  </div>
                 </Link>
               ))}
             </div>

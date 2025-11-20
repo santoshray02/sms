@@ -18,6 +18,7 @@ export default function Fees() {
   const [feeStructures, setFeeStructures] = useState<FeeStructure[]>([]);
   const [loading, setLoading] = useState(true);
   const [showForm, setShowForm] = useState(false);
+  const [showGenerateModal, setShowGenerateModal] = useState(false);
   const [editingFee, setEditingFee] = useState<FeeStructure | null>(null);
   const [academicYearFilter, setAcademicYearFilter] = useState<number | ''>('');
   const [academicYears, setAcademicYears] = useState<any[]>([]);
@@ -106,19 +107,27 @@ export default function Fees() {
     <Layout>
       <div className="space-y-6">
         {/* Header */}
-        <div className="flex justify-between items-center">
+        <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-3">
           <div>
             <h1 className="text-2xl font-bold text-gray-900">Fee Structure Management</h1>
             <p className="mt-1 text-sm text-gray-500">
               Configure fee structures for each class and academic year
             </p>
           </div>
-          <button
-            onClick={handleAdd}
-            className="bg-primary-600 text-white px-4 py-2 rounded-md hover:bg-primary-700"
-          >
-            + Add Fee Structure
-          </button>
+          <div className="flex flex-col sm:flex-row gap-2 w-full sm:w-auto">
+            <button
+              onClick={() => setShowGenerateModal(true)}
+              className="bg-green-600 text-white px-4 py-2 rounded-md hover:bg-green-700 text-sm font-medium"
+            >
+              📅 Generate Monthly Fees
+            </button>
+            <button
+              onClick={handleAdd}
+              className="bg-primary-600 text-white px-4 py-2 rounded-md hover:bg-primary-700 text-sm font-medium"
+            >
+              + Add Fee Structure
+            </button>
+          </div>
         </div>
 
         {/* Filters */}
@@ -266,6 +275,207 @@ export default function Fees() {
           onClose={handleFormClose}
         />
       )}
+
+      {/* Fee Generation Modal */}
+      {showGenerateModal && (
+        <FeeGenerationModal
+          academicYears={academicYears}
+          onClose={() => setShowGenerateModal(false)}
+        />
+      )}
     </Layout>
+  );
+}
+
+// Fee Generation Modal Component
+interface FeeGenerationModalProps {
+  academicYears: any[];
+  onClose: () => void;
+}
+
+function FeeGenerationModal({ academicYears, onClose }: FeeGenerationModalProps) {
+  const [loading, setLoading] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+  const [success, setSuccess] = useState<string | null>(null);
+
+  const currentDate = new Date();
+  const [formData, setFormData] = useState({
+    academic_year_id: academicYears.find((y: any) => y.is_current)?.id || '',
+    month: currentDate.getMonth() + 1, // 1-12
+    year: currentDate.getFullYear(),
+    due_day: 10,
+  });
+
+  const handleSubmit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    setLoading(true);
+    setError(null);
+    setSuccess(null);
+
+    try {
+      const result = await apiClient.generateMonthlyFees({
+        academic_year_id: Number(formData.academic_year_id),
+        month: Number(formData.month),
+        year: Number(formData.year),
+        due_day: Number(formData.due_day),
+      });
+
+      setSuccess(result.message || `Successfully generated ${result.total_generated} monthly fee records`);
+    } catch (err: any) {
+      console.error('Failed to generate monthly fees:', err);
+      setError(err.response?.data?.detail || 'Failed to generate monthly fees');
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const monthNames = [
+    'January', 'February', 'March', 'April', 'May', 'June',
+    'July', 'August', 'September', 'October', 'November', 'December'
+  ];
+
+  return (
+    <div className="fixed inset-0 bg-gray-500 bg-opacity-75 flex items-center justify-center p-2 sm:p-4 z-50">
+      <div className="bg-white rounded-lg max-w-lg w-full">
+        {/* Header */}
+        <div className="bg-white border-b border-gray-200 px-4 sm:px-6 py-4 rounded-t-lg">
+          <div className="flex items-center justify-between">
+            <h3 className="text-lg sm:text-xl font-semibold text-gray-900">
+              Generate Monthly Fees
+            </h3>
+            <button
+              onClick={onClose}
+              className="text-gray-400 hover:text-gray-500 p-1"
+              type="button"
+            >
+              <svg className="h-6 w-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+              </svg>
+            </button>
+          </div>
+        </div>
+
+        {/* Form */}
+        <form onSubmit={handleSubmit} className="px-4 sm:px-6 py-4 space-y-4">
+          {error && (
+            <div className="bg-red-50 border border-red-200 text-red-700 px-4 py-3 rounded-lg text-sm">
+              {error}
+            </div>
+          )}
+
+          {success && (
+            <div className="bg-green-50 border border-green-200 text-green-700 px-4 py-3 rounded-lg text-sm">
+              {success}
+            </div>
+          )}
+
+          <div className="bg-blue-50 border border-blue-200 rounded-lg p-4 text-sm text-blue-800">
+            <p className="font-medium mb-1">What does this do?</p>
+            <p>
+              This will generate monthly fee records for all active students in the selected academic year and month.
+              Each student will get a fee record based on their class fee structure, with applicable concessions applied automatically.
+            </p>
+          </div>
+
+          <div className="space-y-4">
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-1.5">
+                Academic Year <span className="text-red-500">*</span>
+              </label>
+              <select
+                required
+                value={formData.academic_year_id}
+                onChange={(e) => setFormData({ ...formData, academic_year_id: e.target.value })}
+                className="w-full px-3 sm:px-4 py-2.5 border border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 text-base"
+                disabled={loading || !!success}
+              >
+                <option value="">-- Select Academic Year --</option>
+                {academicYears.map((year: any) => (
+                  <option key={year.id} value={year.id}>
+                    {year.name} {year.is_current ? '(Current)' : ''}
+                  </option>
+                ))}
+              </select>
+            </div>
+
+            <div className="grid grid-cols-2 gap-4">
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1.5">
+                  Month <span className="text-red-500">*</span>
+                </label>
+                <select
+                  required
+                  value={formData.month}
+                  onChange={(e) => setFormData({ ...formData, month: Number(e.target.value) })}
+                  className="w-full px-3 sm:px-4 py-2.5 border border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 text-base"
+                  disabled={loading || !!success}
+                >
+                  {monthNames.map((month, index) => (
+                    <option key={index} value={index + 1}>
+                      {month}
+                    </option>
+                  ))}
+                </select>
+              </div>
+
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1.5">
+                  Year <span className="text-red-500">*</span>
+                </label>
+                <input
+                  type="number"
+                  required
+                  value={formData.year}
+                  onChange={(e) => setFormData({ ...formData, year: Number(e.target.value) })}
+                  className="w-full px-3 sm:px-4 py-2.5 border border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 text-base"
+                  min="2000"
+                  max="2100"
+                  disabled={loading || !!success}
+                />
+              </div>
+            </div>
+
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-1.5">
+                Due Day of Month <span className="text-red-500">*</span>
+              </label>
+              <input
+                type="number"
+                required
+                value={formData.due_day}
+                onChange={(e) => setFormData({ ...formData, due_day: Number(e.target.value) })}
+                className="w-full px-3 sm:px-4 py-2.5 border border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 text-base"
+                min="1"
+                max="31"
+                disabled={loading || !!success}
+              />
+              <p className="mt-1 text-xs text-gray-500">
+                Day of the month when fees are due (e.g., 10 for {formData.year}-{String(formData.month).padStart(2, '0')}-10)
+              </p>
+            </div>
+          </div>
+
+          {/* Form Actions */}
+          <div className="flex flex-col-reverse sm:flex-row gap-3 sm:justify-end pt-4 border-t border-gray-200">
+            <button
+              type="button"
+              onClick={onClose}
+              className="w-full sm:w-auto px-6 py-2.5 border border-gray-300 rounded-lg text-sm font-medium text-gray-700 bg-white hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500 transition-colors"
+            >
+              {success ? 'Close' : 'Cancel'}
+            </button>
+            {!success && (
+              <button
+                type="submit"
+                disabled={loading}
+                className="w-full sm:w-auto px-6 py-2.5 border border-transparent rounded-lg shadow-sm text-sm font-medium text-white bg-green-600 hover:bg-green-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-green-500 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
+              >
+                {loading ? 'Generating...' : 'Generate Fees'}
+              </button>
+            )}
+          </div>
+        </form>
+      </div>
+    </div>
   );
 }

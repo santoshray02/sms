@@ -1,6 +1,6 @@
 from fastapi import APIRouter, Depends, Query
 from sqlalchemy.ext.asyncio import AsyncSession
-from sqlalchemy import select, func, and_
+from sqlalchemy import select, func, and_, case
 from datetime import date
 from typing import Optional
 
@@ -31,9 +31,9 @@ async def collection_summary(
         func.sum(MonthlyFee.amount_paid).label("total_collected"),
         func.sum(MonthlyFee.amount_pending).label("total_pending"),
         func.count(MonthlyFee.id).label("total_students"),
-        func.count(func.nullif(MonthlyFee.status == "paid", False)).label("paid_count"),
-        func.count(func.nullif(MonthlyFee.status == "partial", False)).label("partial_count"),
-        func.count(func.nullif(MonthlyFee.status == "pending", False)).label("pending_count")
+        func.sum(case((MonthlyFee.status == "paid", 1), else_=0)).label("paid_count"),
+        func.sum(case((MonthlyFee.status == "partial", 1), else_=0)).label("partial_count"),
+        func.sum(case((MonthlyFee.status == "pending", 1), else_=0)).label("pending_count")
     ).select_from(MonthlyFee)
 
     if academic_year_id:
@@ -46,17 +46,22 @@ async def collection_summary(
     result = await db.execute(query)
     data = result.one()
 
+    total_fees = data.total_fees or 0
+    total_collected = data.total_collected or 0
+    total_pending = data.total_pending or 0
+
     return {
-        "total_fees": (data.total_fees or 0) / 100,
-        "total_collected": (data.total_collected or 0) / 100,
-        "total_pending": (data.total_pending or 0) / 100,
+        "total_fees": total_fees / 100,
+        "total_expected": total_fees / 100,  # Alias for frontend compatibility
+        "total_collected": total_collected / 100,
+        "total_pending": total_pending / 100,
         "collection_percentage": (
-            ((data.total_collected or 0) / (data.total_fees or 1)) * 100
+            ((total_collected / total_fees) * 100) if total_fees > 0 else 0
         ),
         "total_students": data.total_students or 0,
-        "paid_count": data.paid_count or 0,
-        "partial_count": data.partial_count or 0,
-        "pending_count": data.pending_count or 0
+        "paid_count": int(data.paid_count or 0),
+        "partial_count": int(data.partial_count or 0),
+        "pending_count": int(data.pending_count or 0)
     }
 
 

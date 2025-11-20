@@ -12,10 +12,40 @@ class StudentBase(BaseModel):
     gender: str
     class_id: int
     academic_year_id: int
-    parent_name: str = Field(..., min_length=1, max_length=200)
-    parent_phone: str = Field(..., pattern=r"^\+?[0-9]{10,15}$")
+
+    # Legacy parent fields (optional for backward compatibility)
+    parent_name: Optional[str] = Field(None, max_length=200)
+    parent_phone: Optional[str] = Field(None, pattern=r"^\+?[0-9]{10,15}$")
     parent_email: Optional[str] = None
     address: Optional[str] = None
+
+    # Guardian reference (new)
+    guardian_id: Optional[int] = None
+
+    # Government compliance fields
+    category: Optional[str] = Field(None, pattern="^(General|SC|ST|OBC|EWS)$")
+    caste: Optional[str] = Field(None, max_length=100)
+    religion: Optional[str] = Field(None, max_length=50)
+    caste_certificate_number: Optional[str] = Field(None, max_length=50)
+    income_certificate_number: Optional[str] = Field(None, max_length=50)
+    bpl_card_number: Optional[str] = Field(None, max_length=50)
+    aadhaar_number: Optional[str] = Field(None, pattern=r"^[0-9]{12}$")
+
+    # Additional info
+    blood_group: Optional[str] = Field(None, pattern="^(A\+|A-|B\+|B-|AB\+|AB-|O\+|O-)$")
+    photo_url: Optional[str] = Field(None, max_length=255)
+
+    # Scholarship and concession
+    scholarship_type: Optional[str] = Field(None, max_length=100)
+    scholarship_amount: int = 0
+    concession_percentage: int = Field(0, ge=0, le=100)
+    concession_reason: Optional[str] = Field(None, max_length=200)
+
+    # Board exam fields
+    board_registration_number: Optional[str] = Field(None, max_length=50)
+    roll_number: Optional[str] = Field(None, max_length=20)
+
+    # Fee configuration
     has_hostel: bool = False
     transport_route_id: Optional[int] = None
 
@@ -45,12 +75,43 @@ class StudentUpdate(BaseModel):
     gender: Optional[str] = None
     class_id: Optional[int] = None
     academic_year_id: Optional[int] = None
-    parent_name: Optional[str] = Field(None, min_length=1, max_length=200)
+
+    # Legacy parent fields
+    parent_name: Optional[str] = Field(None, max_length=200)
     parent_phone: Optional[str] = Field(None, pattern=r"^\+?[0-9]{10,15}$")
     parent_email: Optional[str] = None
     address: Optional[str] = None
+
+    # Guardian reference
+    guardian_id: Optional[int] = None
+
+    # Government compliance fields
+    category: Optional[str] = Field(None, pattern="^(General|SC|ST|OBC|EWS)$")
+    caste: Optional[str] = Field(None, max_length=100)
+    religion: Optional[str] = Field(None, max_length=50)
+    caste_certificate_number: Optional[str] = Field(None, max_length=50)
+    income_certificate_number: Optional[str] = Field(None, max_length=50)
+    bpl_card_number: Optional[str] = Field(None, max_length=50)
+    aadhaar_number: Optional[str] = Field(None, pattern=r"^[0-9]{12}$")
+
+    # Additional info
+    blood_group: Optional[str] = Field(None, pattern="^(A\+|A-|B\+|B-|AB\+|AB-|O\+|O-)$")
+    photo_url: Optional[str] = Field(None, max_length=255)
+
+    # Scholarship and concession
+    scholarship_type: Optional[str] = Field(None, max_length=100)
+    scholarship_amount: Optional[int] = Field(None, ge=0)
+    concession_percentage: Optional[int] = Field(None, ge=0, le=100)
+    concession_reason: Optional[str] = Field(None, max_length=200)
+
+    # Board exam fields
+    board_registration_number: Optional[str] = Field(None, max_length=50)
+    roll_number: Optional[str] = Field(None, max_length=20)
+
+    # Fee configuration
     has_hostel: Optional[bool] = None
     transport_route_id: Optional[int] = None
+
     status: Optional[str] = Field(None, pattern="^(active|inactive|graduated)$")
 
     @field_validator('gender')

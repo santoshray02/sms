@@ -21,6 +21,24 @@ from app.schemas.fee import (
 from app.schemas.payment import (
     PaymentBase, PaymentCreate, PaymentResponse, PaymentListResponse
 )
+from app.schemas.guardian import (
+    GuardianBase, GuardianCreate, GuardianUpdate, GuardianResponse, GuardianListResponse
+)
+from app.schemas.stream import (
+    StreamBase, StreamCreate, StreamUpdate, StreamResponse
+)
+from app.schemas.concession import (
+    ConcessionBase, ConcessionCreate, ConcessionUpdate, ConcessionResponse, ConcessionListResponse
+)
+from app.schemas.attendance import (
+    AttendanceBase, AttendanceCreate, AttendanceUpdate, AttendanceResponse, AttendanceListResponse,
+    BulkAttendanceCreate
+)
+from app.schemas.settings import (
+    SchoolSettingsBase, SchoolSettingsUpdate, SchoolSettingsResponse,
+    SMSSettingsBase, SMSSettingsUpdate, SMSSettingsResponse,
+    SystemSettingsResponse
+)
 
 __all__ = [
     "UserBase", "UserCreate", "UserUpdate", "UserResponse",
@@ -33,4 +51,12 @@ __all__ = [
     "MonthlyFeeBase", "MonthlyFeeResponse",
     "GenerateMonthlyFeesRequest", "GenerateMonthlyFeesResponse",
     "PaymentBase", "PaymentCreate", "PaymentResponse", "PaymentListResponse",
+    "GuardianBase", "GuardianCreate", "GuardianUpdate", "GuardianResponse", "GuardianListResponse",
+    "StreamBase", "StreamCreate", "StreamUpdate", "StreamResponse",
+    "ConcessionBase", "ConcessionCreate", "ConcessionUpdate", "ConcessionResponse", "ConcessionListResponse",
+    "AttendanceBase", "AttendanceCreate", "AttendanceUpdate", "AttendanceResponse", "AttendanceListResponse",
+    "BulkAttendanceCreate",
+    "SchoolSettingsBase", "SchoolSettingsUpdate", "SchoolSettingsResponse",
+    "SMSSettingsBase", "SMSSettingsUpdate", "SMSSettingsResponse",
+    "SystemSettingsResponse",
 ]
