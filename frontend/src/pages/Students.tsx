@@ -39,7 +39,7 @@ export default function Students() {
       const params: any = {};
       if (classFilter) params.class_id = classFilter;
       const data = await apiClient.getStudents(params);
-      setStudents(data.items || data);
+      setStudents(data.students || data.items || data);
     } catch (error) {
       console.error('Failed to fetch students:', error);
     } finally {

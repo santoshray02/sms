@@ -8,7 +8,7 @@ class PaymentBase(BaseModel):
     monthly_fee_id: int
     student_id: int
     amount: float = Field(..., gt=0)  # Input in rupees
-    payment_mode: str = Field(..., pattern="^(cash|upi|cheque|card)$")
+    payment_mode: str = Field(..., pattern="^(cash|online|upi|cheque|card)$")
     payment_date: date
     transaction_id: Optional[str] = Field(None, max_length=100)
     notes: Optional[str] = None

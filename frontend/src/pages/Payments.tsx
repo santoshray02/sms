@@ -41,7 +41,7 @@ export default function Payments() {
     setSearching(true);
     try {
       const data = await apiClient.getStudents({ search: searchTerm });
-      setStudents(data.items || data);
+      setStudents(data.students || data.items || data);
     } catch (error) {
       console.error('Failed to search students:', error);
       alert('Failed to search students');

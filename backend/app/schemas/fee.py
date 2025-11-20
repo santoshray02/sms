@@ -55,9 +55,9 @@ class MonthlyFeeResponse(MonthlyFeeBase):
     amount_pending: float
     status: str
     generated_at: datetime
-    sms_sent: bool
+    sms_sent: Optional[bool] = None
     sms_sent_at: Optional[datetime] = None
-    reminder_sent: bool
+    reminder_sent: Optional[bool] = None
     reminder_sent_at: Optional[datetime] = None
 
     class Config:
