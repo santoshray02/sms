@@ -28,6 +28,11 @@ requests==2.31.0
 # Utilities
 python-dotenv==1.0.0
 
+# Report Generation
+reportlab==4.0.7
+openpyxl==3.1.2
+Pillow==10.1.0
+
 # Testing (optional)
 pytest==7.4.3
 pytest-asyncio==0.21.1

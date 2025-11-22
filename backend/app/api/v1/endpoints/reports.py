@@ -1,4 +1,5 @@
-from fastapi import APIRouter, Depends, Query
+from fastapi import APIRouter, Depends, Query, HTTPException
+from fastapi.responses import StreamingResponse
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy import select, func, and_, case
 from datetime import date
@@ -11,6 +12,7 @@ from app.models.student import Student
 from app.models.sms import SMSLog
 from app.models.user import User
 from app.api.dependencies import get_current_active_user
+from app.services.report_service import ReportService
 
 router = APIRouter()
 
@@ -262,3 +264,126 @@ async def sms_logs(
         }
         for log in logs
     ]
+
+
+# ==================== Generated Reports (PDF/Excel) ====================
+
+@router.get("/generate/rte-compliance")
+async def generate_rte_compliance_report(
+    academic_year_id: int,
+    format: str = Query("pdf", regex="^(pdf|excel)$"),
+    db: AsyncSession = Depends(get_db),
+    current_user: User = Depends(get_current_active_user)
+):
+    """
+    Generate RTE Compliance Report
+
+    Includes:
+    - EWS/DG student list
+    - Category-wise breakdown
+    - Concession summary
+
+    Format: pdf or excel
+    """
+    try:
+        buffer = await ReportService.generate_rte_compliance_report(
+            db, academic_year_id, format
+        )
+
+        # Set appropriate content type and filename
+        if format == "pdf":
+            content_type = "application/pdf"
+            filename = f"RTE_Compliance_{date.today().isoformat()}.pdf"
+        else:
+            content_type = "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
+            filename = f"RTE_Compliance_{date.today().isoformat()}.xlsx"
+
+        return StreamingResponse(
+            buffer,
+            media_type=content_type,
+            headers={"Content-Disposition": f"attachment; filename={filename}"}
+        )
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Error generating report: {str(e)}")
+
+
+@router.get("/generate/financial")
+async def generate_financial_report(
+    month: int = Query(..., ge=1, le=12),
+    year: int = Query(..., ge=2020, le=2030),
+    academic_year_id: int = Query(...),
+    format: str = Query("pdf", regex="^(pdf|excel)$"),
+    db: AsyncSession = Depends(get_db),
+    current_user: User = Depends(get_current_active_user)
+):
+    """
+    Generate Financial Report
+
+    Includes:
+    - Monthly collection summary
+    - Payment mode analysis
+    - Outstanding fees by class
+    - Defaulter list (7, 15, 30+ days)
+
+    Format: pdf or excel
+    """
+    try:
+        buffer = await ReportService.generate_financial_report(
+            db, month, year, academic_year_id, format
+        )
+
+        # Set appropriate content type and filename
+        if format == "pdf":
+            content_type = "application/pdf"
+            filename = f"Financial_Report_{year}_{month:02d}.pdf"
+        else:
+            content_type = "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
+            filename = f"Financial_Report_{year}_{month:02d}.xlsx"
+
+        return StreamingResponse(
+            buffer,
+            media_type=content_type,
+            headers={"Content-Disposition": f"attachment; filename={filename}"}
+        )
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Error generating report: {str(e)}")
+
+
+@router.get("/generate/academic")
+async def generate_academic_report(
+    academic_year_id: int,
+    format: str = Query("pdf", regex="^(pdf|excel)$"),
+    db: AsyncSession = Depends(get_db),
+    current_user: User = Depends(get_current_active_user)
+):
+    """
+    Generate Academic Enrollment Report
+
+    Includes:
+    - Class-wise strength
+    - Gender distribution
+    - Category-wise enrollment
+    - Transport utilization
+
+    Format: pdf or excel
+    """
+    try:
+        buffer = await ReportService.generate_academic_report(
+            db, academic_year_id, format
+        )
+
+        # Set appropriate content type and filename
+        if format == "pdf":
+            content_type = "application/pdf"
+            filename = f"Academic_Report_{date.today().isoformat()}.pdf"
+        else:
+            content_type = "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
+            filename = f"Academic_Report_{date.today().isoformat()}.xlsx"
+
+        return StreamingResponse(
+            buffer,
+            media_type=content_type,
+            headers={"Content-Disposition": f"attachment; filename={filename}"}
+        )
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Error generating report: {str(e)}")
