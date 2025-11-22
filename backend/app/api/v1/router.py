@@ -1,7 +1,7 @@
 from fastapi import APIRouter
 from app.api.v1.endpoints import (
     auth, students, academic, fees, payments, reports,
-    guardians, streams, concessions, attendance, settings, batch, automation
+    guardians, streams, concessions, attendance, settings, batch, automation, analytics
 )
 
 api_router = APIRouter()
@@ -20,6 +20,7 @@ api_router.include_router(reports.router, prefix="/reports", tags=["Reports"])
 api_router.include_router(settings.router, prefix="/settings", tags=["Settings"])
 api_router.include_router(batch.router, prefix="/batch", tags=["Batch Management"])
 api_router.include_router(automation.router, prefix="/automation", tags=["Automation"])
+api_router.include_router(analytics.router, prefix="/analytics", tags=["Analytics"])
 
 
 @api_router.get("/")
@@ -29,7 +30,7 @@ async def api_root():
     """
     return {
         "message": "School Management System API v1 - Rural Bihar CBSE School Edition",
-        "version": "2.0.0",
+        "version": "3.0.0",
         "endpoints": {
             "auth": "/api/v1/auth",
             "students": "/api/v1/students",
@@ -45,5 +46,6 @@ async def api_root():
             "settings": "/api/v1/settings",
             "batch": "/api/v1/batch",
             "automation": "/api/v1/automation",
+            "analytics": "/api/v1/analytics",
         }
     }

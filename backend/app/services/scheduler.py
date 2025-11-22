@@ -71,8 +71,41 @@ class AutomationScheduler:
 
         async with AsyncSessionLocal() as db:
             try:
-                # TODO: Implement analytics computation
-                logger.info("Analytics computation completed")
+                from app.services.analytics_service import AnalyticsService
+                from app.models.academic import AcademicYear
+                from sqlalchemy import select
+
+                # Get current academic year
+                stmt = select(AcademicYear).where(AcademicYear.is_current == True)
+                result = await db.execute(stmt)
+                current_year = result.scalar_one_or_none()
+
+                if not current_year:
+                    logger.warning("No current academic year found")
+                    return
+
+                # Pre-compute and cache all analytics
+                logger.info(f"Computing analytics for academic year: {current_year.name}")
+
+                # Dashboard summary
+                dashboard = await AnalyticsService.get_dashboard_summary(db, current_year.id)
+                await AnalyticsService.cache_analytics(
+                    db, "dashboard", {"academic_year_id": current_year.id}, dashboard, 604800  # 7 days
+                )
+
+                # Collection trends
+                trends = await AnalyticsService.analyze_fee_collection_trends(db, current_year.id)
+                await AnalyticsService.cache_analytics(
+                    db, "collection_trends", {"academic_year_id": current_year.id}, trends, 604800
+                )
+
+                # Class performance
+                performance = await AnalyticsService.get_class_performance_insights(db, current_year.id)
+                await AnalyticsService.cache_analytics(
+                    db, "class_performance", {"academic_year_id": current_year.id}, performance, 604800
+                )
+
+                logger.info("Weekly analytics computation completed successfully")
             except Exception as e:
                 logger.error(f"Error in analytics computation: {str(e)}")
 
