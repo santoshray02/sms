@@ -14,6 +14,7 @@ interface Defaulter {
   student_name: string;
   admission_number: string;
   class_name: string;
+  section?: string;
   total_pending: number;
   overdue_count: number;
   parent_phone: string;
@@ -255,6 +256,9 @@ export default function Reports() {
                                 <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">
                                   Class
                                 </th>
+                                <th className="px-6 py-3 text-center text-xs font-medium text-gray-500 uppercase">
+                                  Section
+                                </th>
                                 <th className="px-6 py-3 text-right text-xs font-medium text-gray-500 uppercase">
                                   Pending Amount
                                 </th>
@@ -277,6 +281,15 @@ export default function Reports() {
                                   </td>
                                   <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
                                     {defaulter.class_name}
+                                  </td>
+                                  <td className="px-6 py-4 whitespace-nowrap text-center">
+                                    {defaulter.section ? (
+                                      <span className="inline-flex items-center justify-center w-8 h-8 rounded-full bg-primary-100 text-primary-800 font-semibold text-sm">
+                                        {defaulter.section}
+                                      </span>
+                                    ) : (
+                                      <span className="text-gray-400 text-sm">-</span>
+                                    )}
                                   </td>
                                   <td className="px-6 py-4 whitespace-nowrap text-sm text-red-600 text-right font-medium">
                                     {formatCurrency(defaulter.total_pending)}

@@ -27,6 +27,9 @@ export interface TableProps<T = any> {
   zebraStripe?: boolean;
   hover?: boolean;
   onRowClick?: (row: T, index: number) => void;
+  sortBy?: string;
+  sortOrder?: 'asc' | 'desc';
+  onSort?: (field: string) => void;
   pagination?: {
     currentPage: number;
     totalPages: number;
@@ -46,6 +49,9 @@ function Table<T = any>({
   zebraStripe = true,
   hover = true,
   onRowClick,
+  sortBy,
+  sortOrder,
+  onSort,
   pagination,
 }: TableProps<T>) {
   const getColumnAlignment = (align?: 'left' | 'center' | 'right') => {
@@ -156,6 +162,7 @@ function Table<T = any>({
               {columns.map((col) => (
                 <th
                   key={col.key}
+                  onClick={() => col.sortable && onSort?.(col.key)}
                   style={{
                     padding: '12px 16px',
                     textAlign: getColumnAlignment(col.align),
@@ -166,9 +173,37 @@ function Table<T = any>({
                     letterSpacing: '0.05em',
                     width: col.width,
                     cursor: col.sortable ? 'pointer' : 'default',
+                    userSelect: 'none',
                   }}
                 >
-                  {col.label}
+                  <div style={{
+                    display: 'flex',
+                    alignItems: 'center',
+                    justifyContent: col.align === 'center' ? 'center' : col.align === 'right' ? 'flex-end' : 'flex-start',
+                    gap: '4px'
+                  }}>
+                    <span>{col.label}</span>
+                    {col.sortable && (
+                      <span style={{ display: 'inline-flex', flexDirection: 'column', marginLeft: '4px' }}>
+                        {sortBy === col.key ? (
+                          sortOrder === 'asc' ? (
+                            <svg width="12" height="12" viewBox="0 0 12 12" fill="currentColor">
+                              <path d="M6 3l4 5H2z" />
+                            </svg>
+                          ) : (
+                            <svg width="12" height="12" viewBox="0 0 12 12" fill="currentColor">
+                              <path d="M6 9l4-5H2z" />
+                            </svg>
+                          )
+                        ) : (
+                          <svg width="12" height="12" viewBox="0 0 12 12" fill={COLORS.gray[400]}>
+                            <path d="M6 3l2 2.5H4z" />
+                            <path d="M6 9l2-2.5H4z" />
+                          </svg>
+                        )}
+                      </span>
+                    )}
+                  </div>
                 </th>
               ))}
             </tr>

@@ -75,12 +75,16 @@ async def defaulters_list(
     """
     List of students with pending fees (defaulters)
     """
+    from app.models.academic import Class
+
     query = select(
         Student.id,
         Student.admission_number,
         Student.first_name,
         Student.last_name,
         Student.parent_phone,
+        Student.computed_section,
+        Class.name.label("class_name"),
         MonthlyFee.month,
         MonthlyFee.year,
         MonthlyFee.total_fee,
@@ -88,7 +92,9 @@ async def defaulters_list(
         MonthlyFee.amount_pending,
         MonthlyFee.due_date,
         MonthlyFee.status
-    ).join(MonthlyFee, Student.id == MonthlyFee.student_id).where(
+    ).join(MonthlyFee, Student.id == MonthlyFee.student_id
+    ).join(Class, Student.class_id == Class.id
+    ).where(
         and_(
             MonthlyFee.status.in_(["pending", "partial"]),
             MonthlyFee.due_date < date.today()
@@ -103,23 +109,28 @@ async def defaulters_list(
     result = await db.execute(query)
     defaulters = result.all()
 
-    return [
-        {
-            "student_id": d.id,
-            "admission_number": d.admission_number,
-            "student_name": f"{d.first_name} {d.last_name}",
-            "parent_phone": d.parent_phone,
-            "month": d.month,
-            "year": d.year,
-            "total_fee": d.total_fee / 100,
-            "amount_paid": d.amount_paid / 100,
-            "amount_pending": d.amount_pending / 100,
-            "due_date": d.due_date,
-            "status": d.status,
-            "overdue_days": (date.today() - d.due_date).days
-        }
-        for d in defaulters
-    ]
+    # Group by student to show total pending per student
+    from collections import defaultdict
+    student_data = defaultdict(lambda: {
+        "total_pending": 0,
+        "overdue_count": 0,
+        "details": []
+    })
+
+    for d in defaulters:
+        key = d.id
+        student_data[key]["student_id"] = d.id
+        student_data[key]["admission_number"] = d.admission_number
+        student_data[key]["student_name"] = f"{d.first_name} {d.last_name}"
+        student_data[key]["class_name"] = d.class_name
+        student_data[key]["section"] = d.computed_section
+        student_data[key]["parent_phone"] = d.parent_phone
+        student_data[key]["total_pending"] += d.amount_pending / 100
+        student_data[key]["overdue_count"] += 1
+
+    # Convert to list and sort by total pending (highest first)
+    result = sorted(student_data.values(), key=lambda x: x["total_pending"], reverse=True)
+    return result[:limit]
 
 
 @router.get("/class-wise")

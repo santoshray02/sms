@@ -5,9 +5,11 @@ A modern, lightweight school management system built for simplicity and ease of 
 ## 🎯 Core Features
 
 - **Student Management** - Enrollment, profiles, class assignments
+- **Smart Batch Management** 🆕 - Automatic section assignment (A, B, C...) with alphabetical or merit-based strategies
 - **Fee Management** - Automated monthly fee generation (Tuition + Hostel + Transport)
 - **Payment Tracking** - Record payments, generate receipts
 - **SMS Notifications** - Automated fee alerts and reminders to parents
+- **Performance Tracking** 🆕 - Track student marks and attendance for AI-ready analytics
 - **Reports** - Fee collections, defaulters, student lists
 
 ## 🏗️ Architecture

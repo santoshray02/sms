@@ -103,6 +103,14 @@ class ApiClient {
     return response.data;
   }
 
+  async updateStudentPerformance(id: number, data: {
+    average_marks?: number;
+    attendance_percentage?: number;
+  }) {
+    const response = await this.client.put(`/students/${id}/performance`, data);
+    return response.data;
+  }
+
   async deleteStudent(id: number) {
     await this.client.delete(`/students/${id}`);
   }
@@ -110,6 +118,31 @@ class ApiClient {
   // Academic Setup
   async getAcademicYears() {
     const response = await this.client.get('/academic/academic-years');
+    return response.data;
+  }
+
+  async createAcademicYear(data: {
+    name: string;
+    start_date: string;
+    end_date: string;
+    is_current: boolean;
+  }) {
+    const response = await this.client.post('/academic/academic-years', data);
+    return response.data;
+  }
+
+  async updateAcademicYear(id: number, data: { is_current?: boolean }) {
+    const response = await this.client.put(`/academic/academic-years/${id}`, data);
+    return response.data;
+  }
+
+  async promoteStudents(params: {
+    from_class_id: number;
+    to_class_id: number;
+    from_academic_year_id: number;
+    to_academic_year_id: number;
+  }) {
+    const response = await this.client.post('/academic/students/promote', null, { params });
     return response.data;
   }
 
@@ -121,6 +154,28 @@ class ApiClient {
   async getTransportRoutes() {
     const response = await this.client.get('/academic/transport-routes');
     return response.data;
+  }
+
+  async createTransportRoute(data: {
+    name: string;
+    distance_km: number;
+    monthly_fee: number;
+  }) {
+    const response = await this.client.post('/academic/transport-routes', data);
+    return response.data;
+  }
+
+  async updateTransportRoute(id: number, data: {
+    name: string;
+    distance_km: number;
+    monthly_fee: number;
+  }) {
+    const response = await this.client.put(`/academic/transport-routes/${id}`, data);
+    return response.data;
+  }
+
+  async deleteTransportRoute(id: number) {
+    await this.client.delete(`/academic/transport-routes/${id}`);
   }
 
   // Fees
@@ -400,6 +455,50 @@ class ApiClient {
     sms_enabled?: boolean;
   }) {
     const response = await this.client.put('/settings/sms', data);
+    return response.data;
+  }
+
+  async updateBatchSettings(data: {
+    max_batch_size?: number;
+    batch_assignment_strategy?: 'alphabetical' | 'merit';
+    auto_assign_sections?: boolean;
+    reorganize_annually?: boolean;
+  }) {
+    const response = await this.client.put('/settings/batch', data);
+    return response.data;
+  }
+
+  // Batch Management
+  async getBatchSettings() {
+    const response = await this.client.get('/batch/settings');
+    return response.data;
+  }
+
+  async getBatchStatistics() {
+    const response = await this.client.get('/batch/statistics');
+    return response.data;
+  }
+
+  async assignSections(data: {
+    class_id: number;
+    academic_year_id: number;
+    strategy?: 'alphabetical' | 'merit';
+  }) {
+    const response = await this.client.post('/batch/assign-sections', data);
+    return response.data;
+  }
+
+  async reorganizeAllClasses(data: {
+    academic_year_id: number;
+  }) {
+    const response = await this.client.post('/batch/reorganize-all', data);
+    return response.data;
+  }
+
+  async getSectionDistribution(classId: number, academicYearId: number) {
+    const response = await this.client.get(`/batch/distribution/${classId}`, {
+      params: { academic_year_id: academicYearId }
+    });
     return response.data;
   }
 }

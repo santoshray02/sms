@@ -1,6 +1,6 @@
 from pydantic import BaseModel, Field
-from typing import Optional
-from datetime import datetime
+from typing import Optional, Literal
+from datetime import datetime, date
 
 
 # School Settings Schemas
@@ -51,11 +51,35 @@ class SMSSettingsResponse(SMSSettingsBase):
         from_attributes = True
 
 
+# Batch Management Settings Schemas
+class BatchSettingsBase(BaseModel):
+    """Base schema for batch management settings"""
+    max_batch_size: Optional[int] = Field(30, ge=10, le=100, description="Maximum students per section")
+    batch_assignment_strategy: Optional[Literal["alphabetical", "merit"]] = Field("alphabetical", description="Strategy for assigning students to sections")
+    auto_assign_sections: Optional[bool] = Field(True, description="Automatically assign sections to students")
+    reorganize_annually: Optional[bool] = Field(True, description="Reorganize batches at the start of academic year")
+    last_reorganization_date: Optional[date] = Field(None, description="Last date when batches were reorganized")
+
+
+class BatchSettingsUpdate(BatchSettingsBase):
+    """Schema for updating batch settings"""
+    pass
+
+
+class BatchSettingsResponse(BatchSettingsBase):
+    """Schema for batch settings response"""
+    updated_at: Optional[datetime] = None
+
+    class Config:
+        from_attributes = True
+
+
 # Combined System Settings
 class SystemSettingsResponse(BaseModel):
     """Combined system settings response"""
     school: SchoolSettingsResponse
     sms: SMSSettingsResponse
+    batch: BatchSettingsResponse
 
     class Config:
         from_attributes = True

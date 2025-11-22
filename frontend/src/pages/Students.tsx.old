@@ -1,0 +1,717 @@
+import { useState, useEffect } from 'react';
+import Layout from '../components/Layout';
+import { apiClient } from '../services/api';
+import StudentFormEnhanced from '../components/StudentFormEnhanced';
+import Table, { TableColumn } from '../components/Table';
+import Button from '../components/Button';
+import EmptyState from '../components/EmptyState';
+import ConfirmDialog from '../components/ConfirmDialog';
+import FormInput from '../components/FormInput';
+import { useToast } from '../contexts/ToastContext';
+import {
+  PlusIcon,
+  EditIcon,
+  TrashIcon,
+  SearchIcon,
+  StudentsIcon,
+  FilterIcon
+} from '../components/Icons';
+import { COLORS } from '../config/design-system';
+
+interface Student {
+  id: number;
+  admission_number: string;
+  first_name: string;
+  last_name: string;
+  date_of_birth: string;
+  gender: string;
+  class_id: number;
+  class_name?: string;
+  parent_name: string;
+  parent_phone: string;
+  parent_email?: string;
+  status: string;
+  transport_route_id?: number;
+  computed_section?: string;
+  average_marks?: number;
+  attendance_percentage?: number;
+}
+
+interface StudentListResponse {
+  total: number;
+  page: number;
+  page_size: number;
+  students: Student[];
+}
+
+type SortField = 'admission_number' | 'first_name' | 'last_name' | 'date_of_birth' | 'gender' | 'status' | 'computed_section' | 'class_id' | 'created_at';
+type SortOrder = 'asc' | 'desc';
+
+export default function Students() {
+  const [students, setStudents] = useState<Student[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [showForm, setShowForm] = useState(false);
+  const [editingStudent, setEditingStudent] = useState<Student | null>(null);
+  const [searchTerm, setSearchTerm] = useState('');
+  const [classFilter, setClassFilter] = useState<number | ''>('');
+  const [sectionFilter, setSectionFilter] = useState<string>('');
+  const [classes, setClasses] = useState<any[]>([]);
+  const [sections, setSections] = useState<string[]>([]);
+
+  // Pagination state
+  const [currentPage, setCurrentPage] = useState(1);
+  const [totalPages, setTotalPages] = useState(1);
+  const [totalStudents, setTotalStudents] = useState(0);
+  const [pageSize] = useState(50);
+
+  // Sorting state
+  const [sortBy, setSortBy] = useState<SortField>('admission_number');
+  const [sortOrder, setSortOrder] = useState<SortOrder>('asc');
+
+  // Delete confirmation
+  const [deleteDialogOpen, setDeleteDialogOpen] = useState(false);
+  const [studentToDelete, setStudentToDelete] = useState<Student | null>(null);
+  const [deleting, setDeleting] = useState(false);
+
+  // View student details
+  const [viewingStudent, setViewingStudent] = useState<Student | null>(null);
+  const [showViewModal, setShowViewModal] = useState(false);
+
+  // Column visibility
+  const [visibleColumns, setVisibleColumns] = useState<{[key: string]: boolean}>({
+    admission_number: true,
+    name: true,
+    class_name: true,
+    computed_section: true,
+    gender: true,
+    parent_contact: true,
+    status: true,
+    actions: true,
+  });
+  const [showColumnMenu, setShowColumnMenu] = useState(false);
+
+  const toast = useToast();
+
+  useEffect(() => {
+    fetchStudents();
+    fetchClasses();
+  }, [classFilter, currentPage, sortBy, sortOrder]);
+
+  // Close column menu when clicking outside
+  useEffect(() => {
+    const handleClickOutside = (event: MouseEvent) => {
+      const target = event.target as HTMLElement;
+      if (showColumnMenu && !target.closest('.relative')) {
+        setShowColumnMenu(false);
+      }
+    };
+
+    document.addEventListener('mousedown', handleClickOutside);
+    return () => document.removeEventListener('mousedown', handleClickOutside);
+  }, [showColumnMenu]);
+
+  const fetchStudents = async () => {
+    try {
+      setLoading(true);
+      const params: any = {
+        page: currentPage,
+        page_size: pageSize,
+        sort_by: sortBy,
+        sort_order: sortOrder,
+      };
+
+      if (classFilter) params.class_id = classFilter;
+      if (searchTerm) params.search = searchTerm;
+
+      const response: StudentListResponse = await apiClient.getStudents(params);
+
+      let allStudents = response.students || [];
+
+      // Extract unique sections
+      const uniqueSections = Array.from(
+        new Set(allStudents.map(s => s.computed_section).filter(Boolean))
+      ).sort() as string[];
+      setSections(uniqueSections);
+
+      // Filter by section on frontend
+      if (sectionFilter) {
+        allStudents = allStudents.filter(s => s.computed_section === sectionFilter);
+      }
+
+      setStudents(allStudents);
+      setTotalStudents(sectionFilter ? allStudents.length : response.total || 0);
+      setTotalPages(Math.ceil((sectionFilter ? allStudents.length : response.total || 0) / pageSize));
+    } catch (error: any) {
+      console.error('Failed to fetch students:', error);
+      toast.error(error.response?.data?.detail || 'Failed to fetch students');
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const fetchClasses = async () => {
+    try {
+      const data = await apiClient.getClasses();
+      setClasses(data);
+    } catch (error) {
+      console.error('Failed to fetch classes:', error);
+    }
+  };
+
+  const handleAdd = () => {
+    setEditingStudent(null);
+    setShowForm(true);
+  };
+
+  const handleView = (student: Student) => {
+    setViewingStudent(student);
+    setShowViewModal(true);
+  };
+
+  const handleEdit = (student: Student) => {
+    setEditingStudent(student);
+    setShowForm(true);
+  };
+
+  const handleDeleteClick = (student: Student) => {
+    setStudentToDelete(student);
+    setDeleteDialogOpen(true);
+  };
+
+  const handleDeleteConfirm = async () => {
+    if (!studentToDelete) return;
+
+    try {
+      setDeleting(true);
+      await apiClient.deleteStudent(studentToDelete.id);
+      toast.success(`Student ${studentToDelete.first_name} ${studentToDelete.last_name} deleted successfully`);
+      setDeleteDialogOpen(false);
+      setStudentToDelete(null);
+
+      // If we're on a page that no longer exists after deletion, go back one page
+      if (students.length === 1 && currentPage > 1) {
+        setCurrentPage(currentPage - 1);
+      } else {
+        fetchStudents();
+      }
+    } catch (error: any) {
+      console.error('Failed to delete student:', error);
+      toast.error(error.response?.data?.detail || 'Failed to delete student');
+    } finally {
+      setDeleting(false);
+    }
+  };
+
+  const handleFormClose = () => {
+    setShowForm(false);
+    setEditingStudent(null);
+    fetchStudents();
+  };
+
+  const handleSearch = () => {
+    setCurrentPage(1); // Reset to first page on new search
+    fetchStudents();
+  };
+
+  const handleSort = (field: string) => {
+    const validSortFields: SortField[] = ['admission_number', 'first_name', 'last_name', 'date_of_birth', 'gender', 'status', 'computed_section', 'class_id', 'created_at'];
+
+    if (validSortFields.includes(field as SortField)) {
+      if (sortBy === field) {
+        // Toggle sort order
+        setSortOrder(sortOrder === 'asc' ? 'desc' : 'asc');
+      } else {
+        // New field, default to ascending
+        setSortBy(field as SortField);
+        setSortOrder('asc');
+      }
+      setCurrentPage(1); // Reset to first page on sort change
+    }
+  };
+
+  const toggleColumn = (columnKey: string) => {
+    setVisibleColumns(prev => ({
+      ...prev,
+      [columnKey]: !prev[columnKey]
+    }));
+  };
+
+  // Table columns definition
+  const allColumns: TableColumn<Student>[] = [
+    {
+      key: 'admission_number',
+      label: 'Admission No',
+      sortable: true,
+      align: 'left',
+    },
+    {
+      key: 'name',
+      label: 'Student Name',
+      sortable: true,
+      align: 'left',
+      render: (_, student) => (
+        <div>
+          <div className="font-medium text-gray-900">
+            {student.first_name} {student.last_name}
+          </div>
+          <div className="text-xs text-gray-500">{student.date_of_birth}</div>
+        </div>
+      ),
+    },
+    {
+      key: 'class_id',
+      label: 'Class',
+      sortable: true,
+      align: 'left',
+      render: (_, student) => student.class_name || `Class ${student.class_id}`,
+    },
+    {
+      key: 'computed_section',
+      label: 'Section',
+      sortable: true,
+      align: 'center',
+      render: (_, student) => (
+        <span className="inline-flex items-center justify-center w-8 h-8 rounded-full bg-primary-100 text-primary-800 font-semibold text-sm">
+          {student.computed_section || '-'}
+        </span>
+      ),
+    },
+    {
+      key: 'gender',
+      label: 'Gender',
+      sortable: true,
+      align: 'left',
+    },
+    {
+      key: 'parent_contact',
+      label: 'Parent Contact',
+      align: 'left',
+      render: (_, student) => (
+        <div>
+          <div className="text-sm text-gray-900">{student.parent_name}</div>
+          <div className="text-xs text-gray-500">{student.parent_phone}</div>
+        </div>
+      ),
+    },
+    {
+      key: 'status',
+      label: 'Status',
+      sortable: true,
+      align: 'center',
+      render: (_, student) => (
+        <span
+          className={`px-2 py-1 inline-flex text-xs leading-5 font-semibold rounded-full ${
+            student.status === 'active'
+              ? 'bg-green-100 text-green-800'
+              : student.status === 'inactive'
+              ? 'bg-gray-100 text-gray-800'
+              : 'bg-blue-100 text-blue-800'
+          }`}
+        >
+          {student.status}
+        </span>
+      ),
+    },
+    {
+      key: 'actions',
+      label: 'Actions',
+      align: 'right',
+      render: (_, student) => (
+        <div className="flex items-center justify-end gap-2">
+          <button
+            onClick={() => handleView(student)}
+            className="text-gray-600 hover:text-gray-900 transition-colors"
+            title="View Details"
+          >
+            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+              <path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z" />
+              <circle cx="12" cy="12" r="3" />
+            </svg>
+          </button>
+          <button
+            onClick={() => handleEdit(student)}
+            className="text-primary-600 hover:text-primary-900 transition-colors"
+            title="Edit Student"
+          >
+            <EditIcon size={18} />
+          </button>
+          <button
+            onClick={() => handleDeleteClick(student)}
+            className="text-red-600 hover:text-red-900 transition-colors"
+            title="Delete Student"
+          >
+            <TrashIcon size={18} />
+          </button>
+        </div>
+      ),
+    },
+  ];
+
+  // Filter columns based on visibility
+  const columns = allColumns.filter(col => visibleColumns[col.key]);
+
+  return (
+    <Layout>
+      <div className="space-y-6">
+        {/* Header */}
+        <div className="flex justify-between items-center">
+          <div>
+            <h1 className="text-2xl font-bold text-gray-900">Students Management</h1>
+            <p className="mt-1 text-sm text-gray-500">
+              Manage student records and enrollment ({totalStudents} total students)
+            </p>
+          </div>
+          <div className="flex gap-3">
+            <div className="relative">
+              <button
+                onClick={() => setShowColumnMenu(!showColumnMenu)}
+                className="px-4 py-2 border border-gray-300 rounded-md text-sm font-medium text-gray-700 bg-white hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-primary-500 focus:border-transparent flex items-center gap-2"
+              >
+                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                  <path d="M4 6h16M4 12h16M4 18h16"/>
+                </svg>
+                Columns
+              </button>
+              {showColumnMenu && (
+                <div className="absolute right-0 mt-2 w-56 bg-white rounded-md shadow-lg z-50 border border-gray-200">
+                  <div className="py-1">
+                    <div className="px-4 py-2 text-xs font-semibold text-gray-500 uppercase">Show/Hide Columns</div>
+                    {allColumns.filter(col => col.key !== 'actions').map((col) => (
+                      <label
+                        key={col.key}
+                        className="flex items-center px-4 py-2 hover:bg-gray-100 cursor-pointer"
+                      >
+                        <input
+                          type="checkbox"
+                          checked={visibleColumns[col.key]}
+                          onChange={() => toggleColumn(col.key)}
+                          className="h-4 w-4 text-primary-600 focus:ring-primary-500 border-gray-300 rounded"
+                        />
+                        <span className="ml-3 text-sm text-gray-700">{col.label}</span>
+                      </label>
+                    ))}
+                  </div>
+                </div>
+              )}
+            </div>
+            <Button
+              variant="primary"
+              icon={<PlusIcon size={16} />}
+              onClick={handleAdd}
+            >
+              Add Student
+            </Button>
+          </div>
+        </div>
+
+        {/* Filters */}
+        <div className="bg-white p-6 rounded-lg shadow">
+          <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
+            <div className="md:col-span-2">
+              <FormInput
+                label="Search"
+                type="text"
+                value={searchTerm}
+                onChange={(e) => setSearchTerm(e.target.value)}
+                onKeyPress={(e) => {
+                  if (e.key === 'Enter') {
+                    handleSearch();
+                  }
+                }}
+                placeholder="Search by name, admission no, or phone..."
+                icon={<SearchIcon size={18} color={COLORS.gray[400]} />}
+                helperText="Press Enter to search"
+              />
+            </div>
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-2">
+                <FilterIcon size={16} className="inline mr-1" />
+                Filter by Class
+              </label>
+              <select
+                value={classFilter}
+                onChange={(e) => {
+                  setClassFilter(e.target.value ? Number(e.target.value) : '');
+                  setCurrentPage(1); // Reset to first page
+                }}
+                className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-primary-500 focus:border-transparent"
+              >
+                <option value="">All Classes</option>
+                {classes.map((cls) => (
+                  <option key={cls.id} value={cls.id}>
+                    {cls.name} {cls.section}
+                  </option>
+                ))}
+              </select>
+            </div>
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-2">
+                <FilterIcon size={16} className="inline mr-1" />
+                Filter by Section
+              </label>
+              <select
+                value={sectionFilter}
+                onChange={(e) => {
+                  setSectionFilter(e.target.value);
+                  setCurrentPage(1); // Reset to first page
+                  fetchStudents();
+                }}
+                className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-primary-500 focus:border-transparent"
+              >
+                <option value="">All Sections</option>
+                {sections.map((section) => (
+                  <option key={section} value={section}>
+                    Section {section}
+                  </option>
+                ))}
+              </select>
+            </div>
+          </div>
+        </div>
+
+        {/* Students Table */}
+        {loading ? (
+          <Table
+            columns={columns}
+            data={[]}
+            loading={true}
+            skeletonRows={10}
+          />
+        ) : students.length === 0 ? (
+          <div className="bg-white rounded-lg shadow">
+            <EmptyState
+              icon={<StudentsIcon size={64} color={COLORS.gray[400]} />}
+              title="No Students Found"
+              description={
+                searchTerm || classFilter || sectionFilter
+                  ? "No students match your search criteria. Try adjusting your filters."
+                  : "Get started by adding your first student to the system."
+              }
+              action={
+                !searchTerm && !classFilter && !sectionFilter ? (
+                  <Button
+                    variant="primary"
+                    icon={<PlusIcon size={16} />}
+                    onClick={handleAdd}
+                  >
+                    Add First Student
+                  </Button>
+                ) : (
+                  <Button
+                    variant="outline"
+                    onClick={() => {
+                      setSearchTerm('');
+                      setClassFilter('');
+                      setSectionFilter('');
+                      setCurrentPage(1);
+                    }}
+                  >
+                    Clear Filters
+                  </Button>
+                )
+              }
+            />
+          </div>
+        ) : (
+          <Table
+            columns={columns}
+            data={students}
+            zebraStripe={true}
+            hover={true}
+            stickyHeader={true}
+            sortBy={sortBy}
+            sortOrder={sortOrder}
+            onSort={handleSort}
+            pagination={{
+              currentPage,
+              totalPages,
+              pageSize,
+              totalItems: totalStudents,
+              onPageChange: setCurrentPage,
+            }}
+          />
+        )}
+      </div>
+
+      {/* Student Form Modal */}
+      {showForm && (
+        <StudentFormEnhanced
+          student={editingStudent}
+          classes={classes}
+          onClose={handleFormClose}
+        />
+      )}
+
+      {/* View Student Details Modal */}
+      {viewingStudent && showViewModal && (
+        <div className="fixed inset-0 bg-gray-500 bg-opacity-75 flex items-center justify-center p-4 z-50 overflow-y-auto">
+          <div className="bg-white rounded-lg max-w-4xl w-full my-4 max-h-[95vh] overflow-y-auto">
+            {/* Header */}
+            <div className="sticky top-0 bg-white border-b border-gray-200 px-6 py-4 rounded-t-lg flex-shrink-0">
+              <div className="flex items-center justify-between">
+                <h3 className="text-xl font-semibold text-gray-900">Student Details</h3>
+                <button
+                  onClick={() => {
+                    setShowViewModal(false);
+                    setViewingStudent(null);
+                  }}
+                  className="text-gray-400 hover:text-gray-500 p-1"
+                  type="button"
+                >
+                  <svg className="h-6 w-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+                  </svg>
+                </button>
+              </div>
+            </div>
+
+            {/* Content */}
+            <div className="px-6 py-4 space-y-6">
+              {/* Basic Information */}
+              <div>
+                <h4 className="text-lg font-medium text-gray-900 mb-3">Basic Information</h4>
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                  <div>
+                    <label className="block text-sm font-medium text-gray-500">Admission Number</label>
+                    <p className="mt-1 text-sm text-gray-900">{viewingStudent.admission_number}</p>
+                  </div>
+                  <div>
+                    <label className="block text-sm font-medium text-gray-500">Full Name</label>
+                    <p className="mt-1 text-sm text-gray-900">{viewingStudent.first_name} {viewingStudent.last_name}</p>
+                  </div>
+                  <div>
+                    <label className="block text-sm font-medium text-gray-500">Date of Birth</label>
+                    <p className="mt-1 text-sm text-gray-900">{viewingStudent.date_of_birth}</p>
+                  </div>
+                  <div>
+                    <label className="block text-sm font-medium text-gray-500">Gender</label>
+                    <p className="mt-1 text-sm text-gray-900">{viewingStudent.gender}</p>
+                  </div>
+                  <div>
+                    <label className="block text-sm font-medium text-gray-500">Class</label>
+                    <p className="mt-1 text-sm text-gray-900">{viewingStudent.class_name}</p>
+                  </div>
+                  <div>
+                    <label className="block text-sm font-medium text-gray-500">Section</label>
+                    <p className="mt-1 text-sm text-gray-900">
+                      {viewingStudent.computed_section ? (
+                        <span className="inline-flex items-center justify-center px-3 py-1 rounded-full bg-primary-100 text-primary-800 font-semibold text-sm">
+                          Section {viewingStudent.computed_section}
+                        </span>
+                      ) : (
+                        <span className="text-gray-400">Not assigned</span>
+                      )}
+                    </p>
+                  </div>
+                  <div>
+                    <label className="block text-sm font-medium text-gray-500">Status</label>
+                    <p className="mt-1 text-sm text-gray-900">
+                      <span className={`px-2 py-1 inline-flex text-xs leading-5 font-semibold rounded-full ${
+                        viewingStudent.status === 'active' ? 'bg-green-100 text-green-800' :
+                        viewingStudent.status === 'inactive' ? 'bg-gray-100 text-gray-800' :
+                        'bg-blue-100 text-blue-800'
+                      }`}>
+                        {viewingStudent.status}
+                      </span>
+                    </p>
+                  </div>
+                </div>
+              </div>
+
+              {/* Parent/Guardian Information */}
+              <div>
+                <h4 className="text-lg font-medium text-gray-900 mb-3">Parent/Guardian Information</h4>
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                  <div>
+                    <label className="block text-sm font-medium text-gray-500">Parent Name</label>
+                    <p className="mt-1 text-sm text-gray-900">{viewingStudent.parent_name}</p>
+                  </div>
+                  <div>
+                    <label className="block text-sm font-medium text-gray-500">Phone</label>
+                    <p className="mt-1 text-sm text-gray-900">{viewingStudent.parent_phone}</p>
+                  </div>
+                  {viewingStudent.parent_email && (
+                    <div>
+                      <label className="block text-sm font-medium text-gray-500">Email</label>
+                      <p className="mt-1 text-sm text-gray-900">{viewingStudent.parent_email}</p>
+                    </div>
+                  )}
+                </div>
+              </div>
+
+              {/* Performance */}
+              {(viewingStudent.average_marks || viewingStudent.attendance_percentage) && (
+                <div>
+                  <h4 className="text-lg font-medium text-gray-900 mb-3">Performance</h4>
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                    {viewingStudent.average_marks && (
+                      <div>
+                        <label className="block text-sm font-medium text-gray-500">Average Marks</label>
+                        <p className="mt-1 text-sm text-gray-900">{viewingStudent.average_marks}%</p>
+                      </div>
+                    )}
+                    {viewingStudent.attendance_percentage && (
+                      <div>
+                        <label className="block text-sm font-medium text-gray-500">Attendance</label>
+                        <p className="mt-1 text-sm text-gray-900">{viewingStudent.attendance_percentage}%</p>
+                      </div>
+                    )}
+                  </div>
+                </div>
+              )}
+            </div>
+
+            {/* Footer */}
+            <div className="sticky bottom-0 bg-white border-t border-gray-200 px-6 py-4 rounded-b-lg">
+              <div className="flex justify-end gap-3">
+                <button
+                  onClick={() => {
+                    setShowViewModal(false);
+                    setViewingStudent(null);
+                  }}
+                  className="px-4 py-2 border border-gray-300 rounded-md text-sm font-medium text-gray-700 bg-white hover:bg-gray-50"
+                >
+                  Close
+                </button>
+                <button
+                  onClick={() => {
+                    setShowViewModal(false);
+                    handleEdit(viewingStudent);
+                  }}
+                  className="px-4 py-2 border border-transparent rounded-md shadow-sm text-sm font-medium text-white bg-primary-600 hover:bg-primary-700"
+                >
+                  Edit Student
+                </button>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Delete Confirmation Dialog */}
+      {studentToDelete && (
+        <ConfirmDialog
+          isOpen={deleteDialogOpen}
+          onClose={() => {
+            setDeleteDialogOpen(false);
+            setStudentToDelete(null);
+          }}
+          onConfirm={handleDeleteConfirm}
+          title="Delete Student"
+          message={
+            <>
+              Are you sure you want to delete <strong>{studentToDelete.first_name} {studentToDelete.last_name}</strong> (
+              {studentToDelete.admission_number})?
+              <br />
+              <br />
+              This action cannot be undone. The student will be marked as inactive.
+            </>
+          }
+          confirmText="Delete Student"
+          variant="danger"
+          loading={deleting}
+        />
+      )}
+    </Layout>
+  );
+}

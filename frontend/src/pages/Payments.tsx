@@ -93,7 +93,8 @@ export default function Payments() {
   };
 
   const formatCurrency = (amount: number) => {
-    return `Rs. ${(amount / 100).toLocaleString('en-IN', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
+    // Backend already returns amounts in rupees, no conversion needed
+    return `Rs. ${amount.toLocaleString('en-IN', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
   };
 
   const getMonthName = (month: number) => {

@@ -7,6 +7,7 @@ from app.models.user import User
 from app.schemas.settings import (
     SchoolSettingsUpdate, SchoolSettingsResponse,
     SMSSettingsUpdate, SMSSettingsResponse,
+    BatchSettingsUpdate, BatchSettingsResponse,
     SystemSettingsResponse
 )
 from app.api.dependencies import get_current_user, get_current_admin
@@ -19,7 +20,7 @@ async def get_system_settings(
     db: AsyncSession = Depends(get_db),
     current_user: User = Depends(get_current_user)
 ):
-    """Get all system settings (school + SMS)"""
+    """Get all system settings (school + SMS + batch)"""
     # Get or create the settings record with key 'system'
     result = await db.execute(
         select(SystemSetting).where(SystemSetting.key == "system")
@@ -43,7 +44,12 @@ async def get_system_settings(
             sms_api_key=None,
             sms_sender_id=None,
             sms_balance=0,
-            sms_enabled=False
+            sms_enabled=False,
+            max_batch_size=30,
+            batch_assignment_strategy='alphabetical',
+            auto_assign_sections=True,
+            reorganize_annually=True,
+            last_reorganization_date=None
         )
         db.add(settings)
         await db.commit()
@@ -70,7 +76,16 @@ async def get_system_settings(
         updated_at=settings.updated_at
     )
 
-    return SystemSettingsResponse(school=school_settings, sms=sms_settings)
+    batch_settings = BatchSettingsResponse(
+        max_batch_size=settings.max_batch_size or 30,
+        batch_assignment_strategy=settings.batch_assignment_strategy or 'alphabetical',
+        auto_assign_sections=settings.auto_assign_sections if settings.auto_assign_sections is not None else True,
+        reorganize_annually=settings.reorganize_annually if settings.reorganize_annually is not None else True,
+        last_reorganization_date=settings.last_reorganization_date,
+        updated_at=settings.updated_at
+    )
+
+    return SystemSettingsResponse(school=school_settings, sms=sms_settings, batch=batch_settings)
 
 
 @router.put("/school", response_model=SchoolSettingsResponse)
@@ -140,5 +155,40 @@ async def update_sms_settings(
         sms_sender_id=settings.sms_sender_id,
         sms_balance=settings.sms_balance or 0,
         sms_enabled=settings.sms_enabled or False,
+        updated_at=settings.updated_at
+    )
+
+
+@router.put("/batch", response_model=BatchSettingsResponse)
+async def update_batch_settings(
+    data: BatchSettingsUpdate,
+    db: AsyncSession = Depends(get_db),
+    current_user: User = Depends(get_current_admin)
+):
+    """Update batch management settings (Admin only)"""
+    # Get or create settings
+    result = await db.execute(
+        select(SystemSetting).where(SystemSetting.key == "system")
+    )
+    settings = result.scalar_one_or_none()
+
+    if not settings:
+        settings = SystemSetting(key="system", value="{}", description="System configuration")
+        db.add(settings)
+
+    # Update batch fields
+    update_data = data.model_dump(exclude_unset=True)
+    for field, value in update_data.items():
+        setattr(settings, field, value)
+
+    await db.commit()
+    await db.refresh(settings)
+
+    return BatchSettingsResponse(
+        max_batch_size=settings.max_batch_size or 30,
+        batch_assignment_strategy=settings.batch_assignment_strategy or 'alphabetical',
+        auto_assign_sections=settings.auto_assign_sections if settings.auto_assign_sections is not None else True,
+        reorganize_annually=settings.reorganize_annually if settings.reorganize_annually is not None else True,
+        last_reorganization_date=settings.last_reorganization_date,
         updated_at=settings.updated_at
     )

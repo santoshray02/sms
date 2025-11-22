@@ -25,23 +25,57 @@ export default function Fees() {
   const [classes, setClasses] = useState<any[]>([]);
 
   useEffect(() => {
-    fetchAcademicYears();
-    fetchClasses();
-    fetchFeeStructures();
+    const loadData = async () => {
+      setLoading(true);
+      try {
+        // Load academic years and classes first (in parallel)
+        const [yearsData, classesData] = await Promise.all([
+          apiClient.getAcademicYears(),
+          apiClient.getClasses()
+        ]);
+
+        setAcademicYears(yearsData);
+        setClasses(classesData);
+
+        // Set current academic year as default filter
+        if (!academicYearFilter && yearsData.length > 0) {
+          const currentYear = yearsData.find((year: any) => year.is_current);
+          if (currentYear) {
+            setAcademicYearFilter(currentYear.id);
+            return; // Will trigger another useEffect with the filter
+          }
+        }
+
+        // Load fee structures with the loaded data
+        const params: any = {};
+        if (academicYearFilter) params.academic_year_id = academicYearFilter;
+        const feesData = await apiClient.getFeeStructures(params);
+
+        // Enrich with class and academic year names using the fresh data
+        const enrichedData = feesData.map((fee: FeeStructure) => {
+          const classInfo = classesData.find(c => c.id === fee.class_id);
+          const yearInfo = yearsData.find(y => y.id === fee.academic_year_id);
+          return {
+            ...fee,
+            class_name: classInfo ? `${classInfo.name} ${classInfo.section}` : `Class ${fee.class_id}`,
+            academic_year_name: yearInfo ? yearInfo.name : `Year ${fee.academic_year_id}`,
+          };
+        });
+
+        setFeeStructures(enrichedData);
+      } catch (error) {
+        console.error('Failed to load data:', error);
+      } finally {
+        setLoading(false);
+      }
+    };
+    loadData();
   }, [academicYearFilter]);
 
   const fetchAcademicYears = async () => {
     try {
       const data = await apiClient.getAcademicYears();
       setAcademicYears(data);
-
-      // Set current academic year as default filter
-      if (!academicYearFilter && data.length > 0) {
-        const currentYear = data.find((year: any) => year.is_current);
-        if (currentYear) {
-          setAcademicYearFilter(currentYear.id);
-        }
-      }
     } catch (error) {
       console.error('Failed to fetch academic years:', error);
     }
@@ -100,7 +134,8 @@ export default function Fees() {
   };
 
   const formatCurrency = (amount: number) => {
-    return `Rs. ${(amount / 100).toLocaleString('en-IN', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
+    // Backend already returns amount in rupees (not paise), so no conversion needed
+    return `Rs. ${amount.toLocaleString('en-IN', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
   };
 
   return (

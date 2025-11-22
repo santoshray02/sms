@@ -1,4 +1,4 @@
-from sqlalchemy import Column, Integer, String, DateTime, Text, ForeignKey, Boolean
+from sqlalchemy import Column, Integer, String, DateTime, Text, ForeignKey, Boolean, Date
 from sqlalchemy.sql import func
 from sqlalchemy.orm import relationship
 from app.db.session import Base
@@ -57,6 +57,13 @@ class SystemSetting(Base):
     sms_sender_id = Column(String(10), nullable=True)
     sms_balance = Column(Integer, nullable=True, default=0)
     sms_enabled = Column(Boolean, nullable=True, default=False)
+
+    # Batch Management Configuration
+    max_batch_size = Column(Integer, nullable=True, default=30)
+    batch_assignment_strategy = Column(String(20), nullable=True, default='alphabetical')  # alphabetical or merit
+    auto_assign_sections = Column(Boolean, nullable=True, default=True)
+    reorganize_annually = Column(Boolean, nullable=True, default=True)
+    last_reorganization_date = Column(Date, nullable=True)
 
     def __repr__(self):
         return f"<SystemSetting {self.key}>"

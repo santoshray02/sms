@@ -112,6 +112,10 @@ class StudentUpdate(BaseModel):
     has_hostel: Optional[bool] = None
     transport_route_id: Optional[int] = None
 
+    # Performance tracking (for batch management)
+    average_marks: Optional[float] = Field(None, ge=0, le=100)
+    attendance_percentage: Optional[float] = Field(None, ge=0, le=100)
+
     status: Optional[str] = Field(None, pattern="^(active|inactive|graduated)$")
 
     @field_validator('gender')
@@ -133,8 +137,23 @@ class StudentResponse(StudentBase):
     created_at: datetime
     updated_at: datetime
 
+    # Class name (joined from class table)
+    class_name: Optional[str] = None
+
+    # Batch management fields
+    computed_section: Optional[str] = None
+    average_marks: Optional[float] = None
+    attendance_percentage: Optional[float] = None
+    last_performance_update: Optional[datetime] = None
+
     class Config:
         from_attributes = True
+
+
+class StudentPerformanceUpdate(BaseModel):
+    """Schema for updating student performance metrics"""
+    average_marks: Optional[float] = Field(None, ge=0, le=100, description="Average marks percentage")
+    attendance_percentage: Optional[float] = Field(None, ge=0, le=100, description="Attendance percentage")
 
 
 class StudentListResponse(BaseModel):

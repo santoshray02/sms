@@ -1,5 +1,6 @@
-from fastapi import FastAPI
+from fastapi import FastAPI, Request
 from fastapi.middleware.cors import CORSMiddleware
+from starlette.middleware.base import BaseHTTPMiddleware
 from contextlib import asynccontextmanager
 
 from app.core.config import settings
@@ -16,13 +17,17 @@ async def lifespan(app: FastAPI):
     await init_db()
     print("✓ Database initialized")
 
-    # TODO: Start background scheduler for fee generation
-    # from app.tasks.scheduler import start_scheduler
-    # start_scheduler()
+    # Start automation scheduler
+    from app.services.scheduler import automation_scheduler
+    automation_scheduler.start()
+    print("✓ Automation scheduler started")
 
     yield
 
     # Shutdown
+    from app.services.scheduler import automation_scheduler
+    automation_scheduler.stop()
+    print("✓ Automation scheduler stopped")
     print("Shutting down...")
 
 
@@ -33,6 +38,31 @@ app = FastAPI(
     lifespan=lifespan,
 )
 
+
+# Private Network Access middleware
+class PrivateNetworkAccessMiddleware(BaseHTTPMiddleware):
+    """
+    Middleware to handle Private Network Access (PNA) for local development
+    Allows public websites to access local/private network resources
+    """
+    async def dispatch(self, request: Request, call_next):
+        # Handle preflight requests
+        if request.method == "OPTIONS":
+            response = await call_next(request)
+            # Check if the request includes the Private Network Access header
+            if "access-control-request-private-network" in request.headers:
+                response.headers["Access-Control-Allow-Private-Network"] = "true"
+            return response
+
+        # Handle regular requests
+        response = await call_next(request)
+        response.headers["Access-Control-Allow-Private-Network"] = "true"
+        return response
+
+
+# Add Private Network Access middleware first
+app.add_middleware(PrivateNetworkAccessMiddleware)
+
 # CORS middleware
 app.add_middleware(
     CORSMiddleware,
@@ -40,6 +70,7 @@ app.add_middleware(
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],
+    expose_headers=["*"],
 )
 
 # Include API router

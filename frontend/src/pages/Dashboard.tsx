@@ -19,6 +19,9 @@ interface DashboardSummary {
   pending_count?: number;
   total_guardians?: number;
   active_concessions?: number;
+  students_with_sections?: number;
+  section_coverage_percentage?: number;
+  unique_sections?: number;
 }
 
 export default function Dashboard() {
@@ -51,10 +54,16 @@ export default function Dashboard() {
         const concessionData = await apiClient.getActiveConcessions({ page_size: 1 });
         const concessionCount = concessionData.total || concessionData.concessions?.length || 0;
 
+        // Fetch batch management stats (uses SQL aggregation for performance)
+        const batchStats = await apiClient.getBatchStatistics();
+
         setSummary({
           ...collectionData,
           total_guardians: guardianCount,
           active_concessions: concessionCount,
+          students_with_sections: batchStats.students_with_sections,
+          section_coverage_percentage: batchStats.section_coverage_percentage,
+          unique_sections: batchStats.unique_sections,
         });
       } catch (error) {
         console.error('Failed to fetch summary:', error);
@@ -153,6 +162,20 @@ export default function Dashboard() {
       icon: <ConcessionsIcon size={32} color="#9333EA" />,
       description: 'Scholarships & waivers',
     },
+    {
+      name: 'Section Assignment',
+      value: `${(summary.section_coverage_percentage || 0).toFixed(0)}%`,
+      color: COLORS.info[600],
+      icon: (
+        <svg width="32" height="32" viewBox="0 0 24 24" fill="none" stroke={COLORS.info[600]} strokeWidth="2">
+          <rect x="3" y="3" width="7" height="7" />
+          <rect x="14" y="3" width="7" height="7" />
+          <rect x="14" y="14" width="7" height="7" />
+          <rect x="3" y="14" width="7" height="7" />
+        </svg>
+      ),
+      description: `${summary.students_with_sections || 0} students in ${summary.unique_sections || 0} sections`,
+    },
   ];
 
   if (loading) {
@@ -231,7 +254,7 @@ export default function Dashboard() {
           <h2 className="text-lg font-medium text-gray-900 mb-4">
             Additional Information
           </h2>
-          <div className="grid grid-cols-1 gap-5 sm:grid-cols-2">
+          <div className="grid grid-cols-1 gap-5 sm:grid-cols-2 lg:grid-cols-3">
             {additionalStats.map((stat) => (
               <div
                 key={stat.name}

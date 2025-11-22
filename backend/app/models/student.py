@@ -1,4 +1,4 @@
-from sqlalchemy import Column, Integer, String, Date, Boolean, DateTime, Text, ForeignKey
+from sqlalchemy import Column, Integer, String, Date, Boolean, DateTime, Text, ForeignKey, Float
 from sqlalchemy.sql import func
 from sqlalchemy.orm import relationship
 from app.db.session import Base
@@ -55,6 +55,12 @@ class Student(Base):
     board_registration_number = Column(String(50), nullable=True)
     roll_number = Column(String(20), nullable=True)
 
+    # Batch management (smart section assignment)
+    computed_section = Column(String(5), nullable=True, comment="Auto-assigned section (A, B, C...)")
+    average_marks = Column(Float, nullable=True, comment="Rolling average for merit calculation")
+    last_performance_update = Column(DateTime, nullable=True)
+    attendance_percentage = Column(Float, nullable=True)
+
     # Fee configuration
     has_hostel = Column(Boolean, default=False)
     transport_route_id = Column(Integer, ForeignKey("transport_routes.id"), nullable=True)
@@ -75,6 +81,9 @@ class Student(Base):
     sms_logs = relationship("SMSLog", back_populates="student")
     concessions = relationship("Concession", back_populates="student")
     attendance_records = relationship("Attendance", back_populates="student")
+    # Automation relationships
+    fee_reminders = relationship("FeeReminder", back_populates="student")
+    attendance_alerts = relationship("AttendanceAlert", back_populates="student")
 
     @property
     def full_name(self):

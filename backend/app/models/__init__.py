@@ -11,6 +11,14 @@ from app.models.guardian import Guardian
 from app.models.stream import Stream
 from app.models.concession import Concession
 from app.models.attendance import Attendance
+from app.models.automation import (
+    FeeReminder,
+    AttendanceAlert,
+    GeneratedDocument,
+    AnalyticsCache,
+    ReconciliationLog,
+    AutomationConfig,
+)
 
 __all__ = [
     "User",
@@ -27,4 +35,10 @@ __all__ = [
     "Stream",
     "Concession",
     "Attendance",
+    "FeeReminder",
+    "AttendanceAlert",
+    "GeneratedDocument",
+    "AnalyticsCache",
+    "ReconciliationLog",
+    "AutomationConfig",
 ]

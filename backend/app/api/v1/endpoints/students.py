@@ -2,11 +2,12 @@ from fastapi import APIRouter, Depends, HTTPException, status, Query
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy import select, func, or_
 from typing import Optional
+from datetime import datetime
 
 from app.db.session import get_db
 from app.models.student import Student
 from app.models.user import User
-from app.schemas.student import StudentCreate, StudentUpdate, StudentResponse, StudentListResponse
+from app.schemas.student import StudentCreate, StudentUpdate, StudentResponse, StudentListResponse, StudentPerformanceUpdate
 from app.api.dependencies import get_current_active_user
 
 router = APIRouter()
@@ -20,17 +21,22 @@ async def list_students(
     academic_year_id: Optional[int] = None,
     status: Optional[str] = None,
     search: Optional[str] = None,
-    sort_by: Optional[str] = Query(None, regex="^(admission_number|first_name|last_name|date_of_birth|created_at)$"),
+    sort_by: Optional[str] = Query(None, regex="^(admission_number|first_name|last_name|date_of_birth|gender|status|computed_section|class_id|created_at)$"),
     sort_order: Optional[str] = Query("asc", regex="^(asc|desc)$"),
     db: AsyncSession = Depends(get_db),
     current_user: User = Depends(get_current_active_user)
 ):
     """
     List students with pagination, filters, and sorting
-    Sortable fields: admission_number, first_name, last_name, date_of_birth, created_at
+    Sortable fields: admission_number, first_name, last_name, date_of_birth, gender, status, computed_section, class_id, created_at
     """
-    # Build query
-    query = select(Student)
+    from app.models.academic import Class
+
+    # Build query with class name
+    query = select(
+        Student,
+        Class.name.label("class_name")
+    ).outerjoin(Class, Student.class_id == Class.id)
 
     # Apply filters
     if class_id:
@@ -51,17 +57,41 @@ async def list_students(
         )
 
     # Get total count
-    count_query = select(func.count()).select_from(query.subquery())
+    count_query = select(func.count(Student.id)).select_from(Student)
+    if class_id:
+        count_query = count_query.where(Student.class_id == class_id)
+    if academic_year_id:
+        count_query = count_query.where(Student.academic_year_id == academic_year_id)
+    if status:
+        count_query = count_query.where(Student.status == status)
+    if search:
+        search_term = f"%{search}%"
+        count_query = count_query.where(
+            or_(
+                Student.first_name.ilike(search_term),
+                Student.last_name.ilike(search_term),
+                Student.admission_number.ilike(search_term),
+                Student.parent_phone.ilike(search_term)
+            )
+        )
     total_result = await db.execute(count_query)
     total = total_result.scalar()
 
     # Apply sorting
     if sort_by:
-        sort_column = getattr(Student, sort_by)
-        if sort_order == "desc":
-            query = query.order_by(sort_column.desc())
+        if sort_by == "class_id":
+            # Sort by class display_order and name
+            sort_column = Class.display_order
+            if sort_order == "desc":
+                query = query.order_by(sort_column.desc(), Class.name.desc())
+            else:
+                query = query.order_by(sort_column.asc(), Class.name.asc())
         else:
-            query = query.order_by(sort_column.asc())
+            sort_column = getattr(Student, sort_by)
+            if sort_order == "desc":
+                query = query.order_by(sort_column.desc())
+            else:
+                query = query.order_by(sort_column.asc())
     else:
         # Default sorting by admission_number
         query = query.order_by(Student.admission_number.asc())
@@ -71,7 +101,14 @@ async def list_students(
 
     # Execute query
     result = await db.execute(query)
-    students = result.scalars().all()
+    rows = result.all()
+
+    # Combine student data with class_name
+    students = []
+    for row in rows:
+        student_dict = row[0].__dict__.copy()
+        student_dict['class_name'] = row[1]
+        students.append(student_dict)
 
     return {
         "total": total,
@@ -158,6 +195,45 @@ async def update_student(
     update_data = student_data.model_dump(exclude_unset=True)
     for field, value in update_data.items():
         setattr(student, field, value)
+
+    await db.commit()
+    await db.refresh(student)
+
+    return student
+
+
+@router.put("/{student_id}/performance", response_model=StudentResponse)
+async def update_student_performance(
+    student_id: int,
+    performance_data: StudentPerformanceUpdate,
+    db: AsyncSession = Depends(get_db),
+    current_user: User = Depends(get_current_active_user)
+):
+    """
+    Update student performance metrics (average marks, attendance)
+
+    This endpoint is used for AI-ready data collection to track student
+    performance over time. These metrics are used for merit-based section
+    assignment.
+    """
+    result = await db.execute(
+        select(Student).where(Student.id == student_id)
+    )
+    student = result.scalar_one_or_none()
+
+    if not student:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail=f"Student with ID {student_id} not found"
+        )
+
+    # Update performance fields
+    update_data = performance_data.model_dump(exclude_unset=True)
+    for field, value in update_data.items():
+        setattr(student, field, value)
+
+    # Update timestamp
+    student.last_performance_update = datetime.now()
 
     await db.commit()
     await db.refresh(student)
