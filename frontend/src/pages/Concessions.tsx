@@ -310,12 +310,12 @@ export default function Concessions() {
       </div>
 
       {/* Concession Form Modal */}
-      {showForm && (
-        <ConcessionForm
-          concession={editingConcession}
-          onClose={handleFormClose}
-        />
-      )}
+      <ConcessionForm
+        concession={editingConcession}
+        isOpen={showForm}
+        onClose={handleFormClose}
+        onSuccess={fetchConcessions}
+      />
     </Layout>
   );
 }

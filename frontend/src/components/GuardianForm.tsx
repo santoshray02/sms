@@ -1,5 +1,61 @@
-import { useState } from 'react';
+import { useForm } from 'react-hook-form';
+import { zodResolver } from '@hookform/resolvers/zod';
+import { z } from 'zod';
 import { apiClient } from '../services/api';
+import {
+  Dialog,
+  DialogContent,
+  DialogHeader,
+  DialogTitle,
+} from './ui/dialog';
+import {
+  Form,
+  FormControl,
+  FormDescription,
+  FormField,
+  FormItem,
+  FormLabel,
+  FormMessage,
+} from './ui/form';
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from './ui/select';
+import { Input } from './ui/input';
+import { Textarea } from './ui/textarea';
+import { Button } from './ui/button';
+
+// Zod validation schema
+const guardianSchema = z.object({
+  full_name: z.string().min(1, 'Full name is required'),
+  relation: z.enum(['Father', 'Mother', 'Guardian'], {
+    required_error: 'Please select a relation',
+  }),
+  phone: z.string()
+    .regex(/^[0-9]{10,15}$/, 'Must be 10-15 digits')
+    .min(1, 'Phone number is required'),
+  alternate_phone: z.string()
+    .regex(/^[0-9]{10,15}$/, 'Must be 10-15 digits')
+    .optional()
+    .or(z.literal('')),
+  email: z.string().email('Invalid email').optional().or(z.literal('')),
+  address: z.string().optional(),
+  occupation: z.string().optional(),
+  annual_income: z.coerce.number()
+    .min(0, 'Cannot be negative')
+    .optional()
+    .or(z.literal('')),
+  education: z.string().optional(),
+  aadhaar_number: z.string()
+    .regex(/^(\d{12})?$/, 'Must be exactly 12 digits')
+    .optional()
+    .or(z.literal('')),
+});
+
+type GuardianFormData = z.infer<typeof guardianSchema>;
 
 interface Guardian {
   id: number;
@@ -17,42 +73,43 @@ interface Guardian {
 
 interface GuardianFormProps {
   guardian: Guardian | null;
+  isOpen: boolean;
   onClose: () => void;
+  onSuccess?: () => void;
 }
 
-export default function GuardianForm({ guardian, onClose }: GuardianFormProps) {
-  const [loading, setLoading] = useState(false);
-  const [error, setError] = useState<string | null>(null);
-
-  const [formData, setFormData] = useState({
-    full_name: guardian?.full_name || '',
-    relation: guardian?.relation || 'Father',
-    phone: guardian?.phone || '',
-    alternate_phone: guardian?.alternate_phone || '',
-    email: guardian?.email || '',
-    address: guardian?.address || '',
-    occupation: guardian?.occupation || '',
-    annual_income: guardian?.annual_income ? guardian.annual_income / 100 : '', // Convert paise to rupees
-    education: guardian?.education || '',
-    aadhaar_number: guardian?.aadhaar_number || '',
+export default function GuardianForm({ guardian, isOpen, onClose, onSuccess }: GuardianFormProps) {
+  const form = useForm<GuardianFormData>({
+    resolver: zodResolver(guardianSchema),
+    defaultValues: guardian ? {
+      full_name: guardian.full_name,
+      relation: guardian.relation as any,
+      phone: guardian.phone,
+      alternate_phone: guardian.alternate_phone || '',
+      email: guardian.email || '',
+      address: guardian.address || '',
+      occupation: guardian.occupation || '',
+      annual_income: guardian.annual_income ? guardian.annual_income / 100 : '',
+      education: guardian.education || '',
+      aadhaar_number: guardian.aadhaar_number || '',
+    } : {
+      relation: 'Father',
+    },
   });
 
-  const handleSubmit = async (e: React.FormEvent) => {
-    e.preventDefault();
-    setLoading(true);
-    setError(null);
-
+  const onSubmit = async (data: GuardianFormData) => {
     try {
-      // Convert annual_income from rupees to integer (paise for consistency)
       const submitData = {
-        ...formData,
-        annual_income: formData.annual_income ? Number(formData.annual_income) * 100 : null,
-        alternate_phone: formData.alternate_phone || null,
-        email: formData.email || null,
-        address: formData.address || null,
-        occupation: formData.occupation || null,
-        education: formData.education || null,
-        aadhaar_number: formData.aadhaar_number || null,
+        full_name: data.full_name,
+        relation: data.relation,
+        phone: data.phone,
+        alternate_phone: data.alternate_phone || null,
+        email: data.email || null,
+        address: data.address || null,
+        occupation: data.occupation || null,
+        annual_income: data.annual_income ? Number(data.annual_income) * 100 : null,
+        education: data.education || null,
+        aadhaar_number: data.aadhaar_number || null,
       };
 
       if (guardian) {
@@ -60,217 +117,228 @@ export default function GuardianForm({ guardian, onClose }: GuardianFormProps) {
       } else {
         await apiClient.createGuardian(submitData);
       }
+
+      onSuccess?.();
       onClose();
+      form.reset();
     } catch (err: any) {
       console.error('Failed to save guardian:', err);
-      setError(err.response?.data?.detail || 'Failed to save guardian');
-    } finally {
-      setLoading(false);
+      form.setError('root', {
+        type: 'manual',
+        message: err.response?.data?.detail || 'Failed to save guardian. Please check all fields.',
+      });
     }
   };
 
   return (
-    <div className="fixed inset-0 bg-gray-500 bg-opacity-75 flex items-center justify-center p-2 sm:p-4 z-50 overflow-y-auto">
-      <div className="bg-white rounded-lg max-w-2xl w-full my-4">
-        {/* Header */}
-        <div className="sticky top-0 bg-white border-b border-gray-200 px-4 sm:px-6 py-4 rounded-t-lg">
-          <div className="flex items-center justify-between">
-            <h3 className="text-lg sm:text-xl font-semibold text-gray-900">
-              {guardian ? 'Edit Guardian' : 'Add New Guardian'}
-            </h3>
-            <button
-              onClick={onClose}
-              className="text-gray-400 hover:text-gray-500 p-1"
-              type="button"
-            >
-              <svg className="h-6 w-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
-              </svg>
-            </button>
-          </div>
-        </div>
+    <Dialog open={isOpen} onOpenChange={onClose}>
+      <DialogContent className="sm:max-w-2xl max-h-[90vh] overflow-y-auto">
+        <DialogHeader>
+          <DialogTitle>{guardian ? 'Edit Guardian' : 'Add New Guardian'}</DialogTitle>
+        </DialogHeader>
 
-        {/* Form */}
-        <form onSubmit={handleSubmit} className="px-4 sm:px-6 py-4 space-y-4 sm:space-y-6">
-          {error && (
-            <div className="bg-red-50 border border-red-200 text-red-700 px-4 py-3 rounded-lg text-sm">
-              {error}
-            </div>
-          )}
-
-          {/* Basic Information */}
-          <div className="space-y-4">
-            <h4 className="font-medium text-gray-900 text-sm sm:text-base">Basic Information</h4>
-
-            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-              <div className="sm:col-span-2">
-                <label className="block text-sm font-medium text-gray-700 mb-1.5">
-                  Full Name <span className="text-red-500">*</span>
-                </label>
-                <input
-                  type="text"
-                  required
-                  value={formData.full_name}
-                  onChange={(e) => setFormData({ ...formData, full_name: e.target.value })}
-                  className="w-full px-3 sm:px-4 py-2.5 border border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 text-base"
-                  placeholder="Enter full name"
-                />
+        <Form {...form}>
+          <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-6">
+            {/* Error Message */}
+            {form.formState.errors.root && (
+              <div className="rounded-md bg-destructive/15 p-3 text-sm text-destructive">
+                {form.formState.errors.root.message}
               </div>
+            )}
 
-              <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1.5">
-                  Relation <span className="text-red-500">*</span>
-                </label>
-                <select
-                  required
-                  value={formData.relation}
-                  onChange={(e) => setFormData({ ...formData, relation: e.target.value })}
-                  className="w-full px-3 sm:px-4 py-2.5 border border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 text-base"
-                >
-                  <option value="Father">Father</option>
-                  <option value="Mother">Mother</option>
-                  <option value="Guardian">Guardian</option>
-                </select>
-              </div>
+            {/* Basic Information */}
+            <div className="space-y-4">
+              <h4 className="font-semibold text-gray-900">Basic Information</h4>
 
-              <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1.5">
-                  Phone Number <span className="text-red-500">*</span>
-                </label>
-                <input
-                  type="tel"
-                  required
-                  value={formData.phone}
-                  onChange={(e) => setFormData({ ...formData, phone: e.target.value })}
-                  className="w-full px-3 sm:px-4 py-2.5 border border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 text-base"
-                  placeholder="10-digit mobile number"
-                  pattern="[0-9]{10,15}"
+              <div className="grid grid-cols-2 gap-4">
+                <div className="col-span-2">
+                  <FormField
+                    control={form.control}
+                    name="full_name"
+                    render={({ field }) => (
+                      <FormItem>
+                        <FormLabel>Full Name *</FormLabel>
+                        <FormControl>
+                          <Input placeholder="Enter full name" {...field} />
+                        </FormControl>
+                        <FormMessage />
+                      </FormItem>
+                    )}
+                  />
+                </div>
+
+                <FormField
+                  control={form.control}
+                  name="relation"
+                  render={({ field }) => (
+                    <FormItem>
+                      <FormLabel>Relation *</FormLabel>
+                      <Select onValueChange={field.onChange} defaultValue={field.value}>
+                        <FormControl>
+                          <SelectTrigger>
+                            <SelectValue />
+                          </SelectTrigger>
+                        </FormControl>
+                        <SelectContent>
+                          <SelectItem value="Father">Father</SelectItem>
+                          <SelectItem value="Mother">Mother</SelectItem>
+                          <SelectItem value="Guardian">Guardian</SelectItem>
+                        </SelectContent>
+                      </Select>
+                      <FormMessage />
+                    </FormItem>
+                  )}
                 />
-              </div>
 
-              <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1.5">
-                  Alternate Phone
-                </label>
-                <input
-                  type="tel"
-                  value={formData.alternate_phone}
-                  onChange={(e) => setFormData({ ...formData, alternate_phone: e.target.value })}
-                  className="w-full px-3 sm:px-4 py-2.5 border border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 text-base"
-                  placeholder="Optional"
-                  pattern="[0-9]{10,15}"
+                <FormField
+                  control={form.control}
+                  name="phone"
+                  render={({ field }) => (
+                    <FormItem>
+                      <FormLabel>Phone Number *</FormLabel>
+                      <FormControl>
+                        <Input type="tel" placeholder="10-digit mobile number" {...field} />
+                      </FormControl>
+                      <FormMessage />
+                    </FormItem>
+                  )}
                 />
-              </div>
 
-              <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1.5">
-                  Email Address
-                </label>
-                <input
-                  type="email"
-                  value={formData.email}
-                  onChange={(e) => setFormData({ ...formData, email: e.target.value })}
-                  className="w-full px-3 sm:px-4 py-2.5 border border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 text-base"
-                  placeholder="Optional"
+                <FormField
+                  control={form.control}
+                  name="alternate_phone"
+                  render={({ field }) => (
+                    <FormItem>
+                      <FormLabel>Alternate Phone</FormLabel>
+                      <FormControl>
+                        <Input type="tel" placeholder="Optional" {...field} />
+                      </FormControl>
+                      <FormMessage />
+                    </FormItem>
+                  )}
                 />
-              </div>
-            </div>
 
-            <div>
-              <label className="block text-sm font-medium text-gray-700 mb-1.5">
-                Address
-              </label>
-              <textarea
-                value={formData.address}
-                onChange={(e) => setFormData({ ...formData, address: e.target.value })}
-                rows={2}
-                className="w-full px-3 sm:px-4 py-2.5 border border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 text-base"
-                placeholder="Complete address"
-              />
-            </div>
-          </div>
-
-          {/* Professional & Financial Information */}
-          <div className="space-y-4">
-            <h4 className="font-medium text-gray-900 text-sm sm:text-base">Professional & Financial Information</h4>
-
-            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-              <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1.5">
-                  Occupation
-                </label>
-                <input
-                  type="text"
-                  value={formData.occupation}
-                  onChange={(e) => setFormData({ ...formData, occupation: e.target.value })}
-                  className="w-full px-3 sm:px-4 py-2.5 border border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 text-base"
-                  placeholder="Job/Business"
+                <FormField
+                  control={form.control}
+                  name="email"
+                  render={({ field }) => (
+                    <FormItem>
+                      <FormLabel>Email Address</FormLabel>
+                      <FormControl>
+                        <Input type="email" placeholder="Optional" {...field} />
+                      </FormControl>
+                      <FormMessage />
+                    </FormItem>
+                  )}
                 />
-              </div>
 
-              <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1.5">
-                  Annual Income (₹)
-                </label>
-                <input
-                  type="number"
-                  value={formData.annual_income}
-                  onChange={(e) => setFormData({ ...formData, annual_income: e.target.value as any })}
-                  className="w-full px-3 sm:px-4 py-2.5 border border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 text-base"
-                  placeholder="For scholarship eligibility"
-                  min="0"
-                />
-              </div>
-
-              <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1.5">
-                  Education
-                </label>
-                <input
-                  type="text"
-                  value={formData.education}
-                  onChange={(e) => setFormData({ ...formData, education: e.target.value })}
-                  className="w-full px-3 sm:px-4 py-2.5 border border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 text-base"
-                  placeholder="Highest qualification"
-                />
-              </div>
-
-              <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1.5">
-                  Aadhaar Number
-                </label>
-                <input
-                  type="text"
-                  value={formData.aadhaar_number}
-                  onChange={(e) => setFormData({ ...formData, aadhaar_number: e.target.value })}
-                  className="w-full px-3 sm:px-4 py-2.5 border border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 text-base"
-                  placeholder="12-digit Aadhaar"
-                  pattern="[0-9]{12}"
-                  maxLength={12}
-                />
+                <div className="col-span-2">
+                  <FormField
+                    control={form.control}
+                    name="address"
+                    render={({ field }) => (
+                      <FormItem>
+                        <FormLabel>Address</FormLabel>
+                        <FormControl>
+                          <Textarea rows={2} placeholder="Complete address" {...field} />
+                        </FormControl>
+                        <FormMessage />
+                      </FormItem>
+                    )}
+                  />
+                </div>
               </div>
             </div>
-          </div>
 
-          {/* Form Actions */}
-          <div className="flex flex-col-reverse sm:flex-row gap-3 sm:justify-end pt-4 border-t border-gray-200">
-            <button
-              type="button"
-              onClick={onClose}
-              className="w-full sm:w-auto px-6 py-2.5 border border-gray-300 rounded-lg text-sm font-medium text-gray-700 bg-white hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500 transition-colors"
-            >
-              Cancel
-            </button>
-            <button
-              type="submit"
-              disabled={loading}
-              className="w-full sm:w-auto px-6 py-2.5 border border-transparent rounded-lg shadow-sm text-sm font-medium text-white bg-indigo-600 hover:bg-indigo-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
-            >
-              {loading ? 'Saving...' : (guardian ? 'Update Guardian' : 'Add Guardian')}
-            </button>
-          </div>
-        </form>
-      </div>
-    </div>
+            {/* Professional & Financial Information */}
+            <div className="space-y-4">
+              <h4 className="font-semibold text-gray-900">Professional & Financial Information</h4>
+
+              <div className="grid grid-cols-2 gap-4">
+                <FormField
+                  control={form.control}
+                  name="occupation"
+                  render={({ field }) => (
+                    <FormItem>
+                      <FormLabel>Occupation</FormLabel>
+                      <FormControl>
+                        <Input placeholder="Job/Business" {...field} />
+                      </FormControl>
+                      <FormMessage />
+                    </FormItem>
+                  )}
+                />
+
+                <FormField
+                  control={form.control}
+                  name="annual_income"
+                  render={({ field }) => (
+                    <FormItem>
+                      <FormLabel>Annual Income (₹)</FormLabel>
+                      <FormControl>
+                        <Input
+                          type="number"
+                          min="0"
+                          placeholder="For scholarship eligibility"
+                          {...field}
+                        />
+                      </FormControl>
+                      <FormMessage />
+                    </FormItem>
+                  )}
+                />
+
+                <FormField
+                  control={form.control}
+                  name="education"
+                  render={({ field }) => (
+                    <FormItem>
+                      <FormLabel>Education</FormLabel>
+                      <FormControl>
+                        <Input placeholder="Highest qualification" {...field} />
+                      </FormControl>
+                      <FormMessage />
+                    </FormItem>
+                  )}
+                />
+
+                <FormField
+                  control={form.control}
+                  name="aadhaar_number"
+                  render={({ field }) => (
+                    <FormItem>
+                      <FormLabel>Aadhaar Number</FormLabel>
+                      <FormControl>
+                        <Input placeholder="12-digit Aadhaar" maxLength={12} {...field} />
+                      </FormControl>
+                      <FormMessage />
+                    </FormItem>
+                  )}
+                />
+              </div>
+            </div>
+
+            {/* Form Actions */}
+            <div className="flex justify-end gap-3 pt-4 border-t">
+              <Button
+                type="button"
+                variant="outline"
+                onClick={onClose}
+                disabled={form.formState.isSubmitting}
+              >
+                Cancel
+              </Button>
+              <Button type="submit" disabled={form.formState.isSubmitting}>
+                {form.formState.isSubmitting
+                  ? 'Saving...'
+                  : guardian
+                  ? 'Update Guardian'
+                  : 'Add Guardian'}
+              </Button>
+            </div>
+          </form>
+        </Form>
+      </DialogContent>
+    </Dialog>
   );
 }

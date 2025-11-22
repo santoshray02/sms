@@ -1,5 +1,61 @@
-import { useState } from 'react';
+import { useForm } from 'react-hook-form';
+import { zodResolver } from '@hookform/resolvers/zod';
+import { z } from 'zod';
 import { apiClient } from '../services/api';
+import {
+  Dialog,
+  DialogContent,
+  DialogHeader,
+  DialogTitle,
+} from './ui/dialog';
+import {
+  Form,
+  FormControl,
+  FormDescription,
+  FormField,
+  FormItem,
+  FormLabel,
+  FormMessage,
+} from './ui/form';
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from './ui/select';
+import { Input } from './ui/input';
+import { Textarea } from './ui/textarea';
+import { Button } from './ui/button';
+import { Card } from './ui/card';
+
+// Zod validation schema
+const paymentSchema = z.object({
+  amount: z.coerce.number({
+    required_error: 'Payment amount is required',
+    invalid_type_error: 'Must be a valid number',
+  }).positive('Amount must be greater than zero').multipleOf(0.01, 'Maximum 2 decimal places'),
+  payment_mode: z.enum(['cash', 'online', 'cheque', 'upi', 'card'], {
+    required_error: 'Please select a payment mode',
+  }),
+  payment_date: z.string().min(1, 'Payment date is required'),
+  transaction_id: z.string().optional(),
+  notes: z.string().optional(),
+}).refine(
+  (data) => {
+    // Require transaction_id for non-cash payments
+    if (['online', 'cheque', 'upi', 'card'].includes(data.payment_mode)) {
+      return !!data.transaction_id && data.transaction_id.trim().length > 0;
+    }
+    return true;
+  },
+  {
+    message: 'Transaction ID is required for this payment mode',
+    path: ['transaction_id'],
+  }
+);
+
+type PaymentFormData = z.infer<typeof paymentSchema>;
 
 interface MonthlyFee {
   id: number;
@@ -20,95 +76,88 @@ interface Student {
 interface PaymentFormProps {
   monthlyFee: MonthlyFee;
   student: Student;
+  isOpen: boolean;
   onClose: () => void;
   onSuccess: () => void;
 }
 
-export default function PaymentForm({ monthlyFee, student, onClose, onSuccess }: PaymentFormProps) {
-  const [loading, setLoading] = useState(false);
-  const [error, setError] = useState<string | null>(null);
-
-  const [formData, setFormData] = useState({
-    amount: (monthlyFee.amount_pending / 100).toString(),
-    payment_mode: 'cash',
-    payment_date: new Date().toISOString().split('T')[0],
-    transaction_id: '',
-    notes: '',
+export default function PaymentForm({
+  monthlyFee,
+  student,
+  isOpen,
+  onClose,
+  onSuccess,
+}: PaymentFormProps) {
+  const form = useForm<PaymentFormData>({
+    resolver: zodResolver(paymentSchema),
+    defaultValues: {
+      amount: monthlyFee.amount_pending,
+      payment_mode: 'cash',
+      payment_date: new Date().toISOString().split('T')[0],
+      transaction_id: '',
+      notes: '',
+    },
   });
 
-  const handleChange = (e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement | HTMLTextAreaElement>) => {
-    const { name, value } = e.target;
-    setFormData(prev => ({ ...prev, [name]: value }));
-  };
+  const paymentMode = form.watch('payment_mode');
+  const amount = form.watch('amount', 0);
 
-  const handleSubmit = async (e: React.FormEvent) => {
-    e.preventDefault();
-    setError(null);
-
-    const amount = parseFloat(formData.amount);
-    const maxAmount = monthlyFee.amount_pending / 100;
-
-    if (amount <= 0) {
-      setError('Payment amount must be greater than zero');
+  const onSubmit = async (data: PaymentFormData) => {
+    // Additional validation: amount cannot exceed pending amount
+    if (data.amount > monthlyFee.amount_pending) {
+      form.setError('amount', {
+        type: 'manual',
+        message: `Amount cannot exceed pending amount (₹${monthlyFee.amount_pending.toFixed(2)})`,
+      });
       return;
     }
-
-    if (amount > maxAmount) {
-      setError(`Payment amount cannot exceed pending amount (Rs. ${maxAmount.toFixed(2)})`);
-      return;
-    }
-
-    setLoading(true);
 
     try {
       const paymentData = {
         monthly_fee_id: monthlyFee.id,
         student_id: student.id,
-        amount: amount,
-        payment_mode: formData.payment_mode,
-        payment_date: formData.payment_date,
-        transaction_id: formData.transaction_id || undefined,
-        notes: formData.notes || undefined,
+        amount: data.amount,
+        payment_mode: data.payment_mode,
+        payment_date: data.payment_date,
+        transaction_id: data.transaction_id || undefined,
+        notes: data.notes || undefined,
       };
 
       await apiClient.createPayment(paymentData);
       onSuccess();
+      onClose();
+      form.reset();
     } catch (err: any) {
       console.error('Failed to record payment:', err);
-      setError(err.response?.data?.detail || 'Failed to record payment. Please try again.');
-    } finally {
-      setLoading(false);
+      form.setError('root', {
+        type: 'manual',
+        message: err.response?.data?.detail || 'Failed to record payment. Please try again.',
+      });
     }
   };
 
   const formatCurrency = (amount: number) => {
-    return `Rs. ${(amount / 100).toLocaleString('en-IN', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
+    return `₹${amount.toLocaleString('en-IN', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
   };
 
   const getMonthName = (month: number) => {
     const months = [
       'January', 'February', 'March', 'April', 'May', 'June',
-      'July', 'August', 'September', 'October', 'November', 'December'
+      'July', 'August', 'September', 'October', 'November', 'December',
     ];
     return months[month - 1];
   };
 
   return (
-    <div className="fixed inset-0 bg-gray-600 bg-opacity-50 overflow-y-auto h-full w-full z-50">
-      <div className="relative top-20 mx-auto p-5 border w-full max-w-2xl shadow-lg rounded-md bg-white">
-        <div className="flex justify-between items-center mb-4">
-          <h3 className="text-lg font-medium text-gray-900">Record Payment</h3>
-          <button
-            onClick={onClose}
-            className="text-gray-400 hover:text-gray-500"
-          >
-            <span className="text-2xl">&times;</span>
-          </button>
-        </div>
+    <Dialog open={isOpen} onOpenChange={onClose}>
+      <DialogContent className="sm:max-w-[700px] max-h-[90vh] overflow-y-auto">
+        <DialogHeader>
+          <DialogTitle>Record Payment</DialogTitle>
+        </DialogHeader>
 
-        {/* Student and Fee Info */}
-        <div className="mb-6 p-4 bg-blue-50 border border-blue-200 rounded-md">
-          <h4 className="font-medium text-blue-900 mb-2">Payment Details</h4>
+        {/* Student and Fee Info Card */}
+        <Card className="p-4 bg-blue-50 border-blue-200">
+          <h4 className="text-sm font-semibold text-blue-900 mb-3">Payment Details</h4>
           <div className="grid grid-cols-2 gap-3 text-sm">
             <div>
               <span className="text-blue-700">Student:</span>
@@ -118,7 +167,9 @@ export default function PaymentForm({ monthlyFee, student, onClose, onSuccess }:
             </div>
             <div>
               <span className="text-blue-700">Admission No:</span>
-              <span className="ml-2 font-semibold text-blue-900">{student.admission_number}</span>
+              <span className="ml-2 font-semibold text-blue-900">
+                {student.admission_number}
+              </span>
             </div>
             <div>
               <span className="text-blue-700">Fee Period:</span>
@@ -145,126 +196,156 @@ export default function PaymentForm({ monthlyFee, student, onClose, onSuccess }:
               </span>
             </div>
           </div>
-        </div>
+        </Card>
 
-        {error && (
-          <div className="mb-4 bg-red-50 border border-red-200 text-red-700 px-4 py-3 rounded">
-            {error}
-          </div>
-        )}
+        <Form {...form}>
+          <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-6">
+            {/* Error Message */}
+            {form.formState.errors.root && (
+              <div className="rounded-md bg-destructive/15 p-3 text-sm text-destructive">
+                {form.formState.errors.root.message}
+              </div>
+            )}
 
-        <form onSubmit={handleSubmit} className="space-y-4">
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-            {/* Payment Amount */}
-            <div>
-              <label className="block text-sm font-medium text-gray-700 mb-1">
-                Payment Amount (Rs.) <span className="text-red-500">*</span>
-              </label>
-              <input
-                type="number"
+            <div className="grid grid-cols-2 gap-4">
+              {/* Payment Amount */}
+              <FormField
+                control={form.control}
                 name="amount"
-                value={formData.amount}
-                onChange={handleChange}
-                required
-                min="0.01"
-                max={(monthlyFee.amount_pending / 100).toString()}
-                step="0.01"
-                className="w-full px-3 py-2 border border-gray-300 rounded-md focus:ring-primary-500 focus:border-primary-500"
+                render={({ field }) => (
+                  <FormItem>
+                    <FormLabel>Payment Amount (₹) *</FormLabel>
+                    <FormControl>
+                      <Input
+                        type="number"
+                        step="0.01"
+                        placeholder="Enter amount"
+                        {...field}
+                      />
+                    </FormControl>
+                    <FormDescription>
+                      Maximum: ₹{monthlyFee.amount_pending.toFixed(2)}
+                    </FormDescription>
+                    <FormMessage />
+                  </FormItem>
+                )}
               />
-              <p className="mt-1 text-xs text-gray-500">
-                Maximum: Rs. {(monthlyFee.amount_pending / 100).toFixed(2)}
-              </p>
-            </div>
 
-            {/* Payment Date */}
-            <div>
-              <label className="block text-sm font-medium text-gray-700 mb-1">
-                Payment Date <span className="text-red-500">*</span>
-              </label>
-              <input
-                type="date"
+              {/* Payment Date */}
+              <FormField
+                control={form.control}
                 name="payment_date"
-                value={formData.payment_date}
-                onChange={handleChange}
-                required
-                max={new Date().toISOString().split('T')[0]}
-                className="w-full px-3 py-2 border border-gray-300 rounded-md focus:ring-primary-500 focus:border-primary-500"
+                render={({ field }) => (
+                  <FormItem>
+                    <FormLabel>Payment Date *</FormLabel>
+                    <FormControl>
+                      <Input
+                        type="date"
+                        max={new Date().toISOString().split('T')[0]}
+                        {...field}
+                      />
+                    </FormControl>
+                    <FormDescription>
+                      Cannot be a future date
+                    </FormDescription>
+                    <FormMessage />
+                  </FormItem>
+                )}
               />
-            </div>
 
-            {/* Payment Mode */}
-            <div>
-              <label className="block text-sm font-medium text-gray-700 mb-1">
-                Payment Mode <span className="text-red-500">*</span>
-              </label>
-              <select
+              {/* Payment Mode */}
+              <FormField
+                control={form.control}
                 name="payment_mode"
-                value={formData.payment_mode}
-                onChange={handleChange}
-                required
-                className="w-full px-3 py-2 border border-gray-300 rounded-md focus:ring-primary-500 focus:border-primary-500"
-              >
-                <option value="cash">Cash</option>
-                <option value="online">Online Transfer</option>
-                <option value="cheque">Cheque</option>
-                <option value="upi">UPI</option>
-                <option value="card">Card</option>
-              </select>
-            </div>
+                render={({ field }) => (
+                  <FormItem>
+                    <FormLabel>Payment Mode *</FormLabel>
+                    <Select
+                      onValueChange={field.onChange}
+                      defaultValue={field.value}
+                    >
+                      <FormControl>
+                        <SelectTrigger>
+                          <SelectValue placeholder="Select payment mode" />
+                        </SelectTrigger>
+                      </FormControl>
+                      <SelectContent>
+                        <SelectItem value="cash">Cash</SelectItem>
+                        <SelectItem value="online">Online Transfer</SelectItem>
+                        <SelectItem value="cheque">Cheque</SelectItem>
+                        <SelectItem value="upi">UPI</SelectItem>
+                        <SelectItem value="card">Card</SelectItem>
+                      </SelectContent>
+                    </Select>
+                    <FormMessage />
+                  </FormItem>
+                )}
+              />
 
-            {/* Transaction ID */}
-            <div>
-              <label className="block text-sm font-medium text-gray-700 mb-1">
-                Transaction ID / Cheque No
-              </label>
-              <input
-                type="text"
+              {/* Transaction ID */}
+              <FormField
+                control={form.control}
                 name="transaction_id"
-                value={formData.transaction_id}
-                onChange={handleChange}
-                placeholder="Optional"
-                className="w-full px-3 py-2 border border-gray-300 rounded-md focus:ring-primary-500 focus:border-primary-500"
-              />
-              <p className="mt-1 text-xs text-gray-500">
-                Required for online/cheque/UPI payments
-              </p>
-            </div>
-
-            {/* Notes */}
-            <div className="md:col-span-2">
-              <label className="block text-sm font-medium text-gray-700 mb-1">
-                Notes
-              </label>
-              <textarea
-                name="notes"
-                value={formData.notes}
-                onChange={handleChange}
-                rows={3}
-                placeholder="Any additional notes about this payment..."
-                className="w-full px-3 py-2 border border-gray-300 rounded-md focus:ring-primary-500 focus:border-primary-500"
+                render={({ field }) => (
+                  <FormItem>
+                    <FormLabel>
+                      Transaction ID / Cheque No {paymentMode !== 'cash' && '*'}
+                    </FormLabel>
+                    <FormControl>
+                      <Input
+                        type="text"
+                        placeholder={paymentMode === 'cash' ? 'Optional' : 'Required for this payment mode'}
+                        {...field}
+                      />
+                    </FormControl>
+                    <FormDescription>
+                      Required for online/cheque/UPI/card payments
+                    </FormDescription>
+                    <FormMessage />
+                  </FormItem>
+                )}
               />
             </div>
-          </div>
 
-          {/* Form Actions */}
-          <div className="flex justify-end space-x-3 pt-4 border-t">
-            <button
-              type="button"
-              onClick={onClose}
-              className="px-4 py-2 border border-gray-300 rounded-md text-gray-700 hover:bg-gray-50"
-            >
-              Cancel
-            </button>
-            <button
-              type="submit"
-              disabled={loading}
-              className="px-4 py-2 bg-primary-600 text-white rounded-md hover:bg-primary-700 disabled:bg-gray-400"
-            >
-              {loading ? 'Recording Payment...' : 'Record Payment'}
-            </button>
-          </div>
-        </form>
-      </div>
-    </div>
+            {/* Notes (Full Width) */}
+            <FormField
+              control={form.control}
+              name="notes"
+              render={({ field }) => (
+                <FormItem>
+                  <FormLabel>Notes</FormLabel>
+                  <FormControl>
+                    <Textarea
+                      rows={3}
+                      placeholder="Any additional notes about this payment..."
+                      {...field}
+                    />
+                  </FormControl>
+                  <FormDescription>
+                    Optional additional information
+                  </FormDescription>
+                  <FormMessage />
+                </FormItem>
+              )}
+            />
+
+            {/* Form Actions */}
+            <div className="flex justify-end gap-3 pt-4 border-t">
+              <Button
+                type="button"
+                variant="outline"
+                onClick={onClose}
+                disabled={form.formState.isSubmitting}
+              >
+                Cancel
+              </Button>
+              <Button type="submit" disabled={form.formState.isSubmitting}>
+                {form.formState.isSubmitting ? 'Recording...' : 'Record Payment'}
+              </Button>
+            </div>
+          </form>
+        </Form>
+      </DialogContent>
+    </Dialog>
   );
 }

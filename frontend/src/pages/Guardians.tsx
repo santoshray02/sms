@@ -287,12 +287,12 @@ export default function Guardians() {
       </div>
 
       {/* Guardian Form Modal */}
-      {showForm && (
-        <GuardianForm
-          guardian={editingGuardian}
-          onClose={handleFormClose}
-        />
-      )}
+      <GuardianForm
+        guardian={editingGuardian}
+        isOpen={showForm}
+        onClose={handleFormClose}
+        onSuccess={fetchGuardians}
+      />
 
       {/* Guardian Students Modal */}
       {selectedGuardian && guardianStudents && (

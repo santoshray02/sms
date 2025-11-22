@@ -1,5 +1,53 @@
-import { useState } from 'react';
+import { useForm } from 'react-hook-form';
+import { zodResolver } from '@hookform/resolvers/zod';
+import { z } from 'zod';
 import { apiClient } from '../services/api';
+import {
+  Dialog,
+  DialogContent,
+  DialogHeader,
+  DialogTitle,
+} from './ui/dialog';
+import {
+  Form,
+  FormControl,
+  FormDescription,
+  FormField,
+  FormItem,
+  FormLabel,
+  FormMessage,
+} from './ui/form';
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from './ui/select';
+import { Input } from './ui/input';
+import { Button } from './ui/button';
+import { Card } from './ui/card';
+
+// Zod validation schema
+const feeStructureSchema = z.object({
+  class_id: z.coerce.number({
+    required_error: 'Please select a class',
+    invalid_type_error: 'Please select a class',
+  }).int().positive(),
+  academic_year_id: z.coerce.number({
+    required_error: 'Please select an academic year',
+    invalid_type_error: 'Please select an academic year',
+  }).int().positive(),
+  tuition_fee: z.coerce.number({
+    required_error: 'Tuition fee is required',
+    invalid_type_error: 'Must be a valid number',
+  }).min(0, 'Tuition fee cannot be negative').multipleOf(0.01, 'Maximum 2 decimal places'),
+  hostel_fee: z.coerce.number({
+    invalid_type_error: 'Must be a valid number',
+  }).min(0, 'Hostel fee cannot be negative').multipleOf(0.01, 'Maximum 2 decimal places').default(0),
+});
+
+type FeeStructureFormData = z.infer<typeof feeStructureSchema>;
 
 interface FeeStructure {
   id: number;
@@ -13,225 +61,224 @@ interface FeeStructureFormProps {
   feeStructure: FeeStructure | null;
   classes: any[];
   academicYears: any[];
+  isOpen: boolean;
   onClose: () => void;
+  onSuccess?: () => void;
 }
 
 export default function FeeStructureForm({
   feeStructure,
   classes,
   academicYears,
-  onClose
+  isOpen,
+  onClose,
+  onSuccess,
 }: FeeStructureFormProps) {
-  const [loading, setLoading] = useState(false);
-  const [error, setError] = useState<string | null>(null);
+  const isEditMode = !!feeStructure;
 
-  const [formData, setFormData] = useState({
-    class_id: feeStructure?.class_id || '',
-    academic_year_id: feeStructure?.academic_year_id || '',
-    tuition_fee: feeStructure ? (feeStructure.tuition_fee / 100).toString() : '',
-    hostel_fee: feeStructure ? (feeStructure.hostel_fee / 100).toString() : '0',
+  const form = useForm<FeeStructureFormData>({
+    resolver: zodResolver(feeStructureSchema),
+    defaultValues: feeStructure
+      ? {
+          class_id: feeStructure.class_id,
+          academic_year_id: feeStructure.academic_year_id,
+          tuition_fee: feeStructure.tuition_fee,
+          hostel_fee: feeStructure.hostel_fee,
+        }
+      : {
+          hostel_fee: 0,
+        },
   });
 
-  const handleChange = (e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement>) => {
-    const { name, value } = e.target;
-    setFormData(prev => ({ ...prev, [name]: value }));
-  };
+  // Watch fees for total calculation
+  const tuitionFee = form.watch('tuition_fee', 0);
+  const hostelFee = form.watch('hostel_fee', 0);
+  const totalFee = ((tuitionFee || 0) + (hostelFee || 0)).toFixed(2);
 
-  const handleSubmit = async (e: React.FormEvent) => {
-    e.preventDefault();
-    setError(null);
-    setLoading(true);
-
+  const onSubmit = async (data: FeeStructureFormData) => {
     try {
-      const submitData = {
-        class_id: Number(formData.class_id),
-        academic_year_id: Number(formData.academic_year_id),
-        tuition_fee: parseFloat(formData.tuition_fee),
-        hostel_fee: parseFloat(formData.hostel_fee),
-      };
-
-      if (feeStructure) {
-        // For update, we only send tuition and hostel fees
-        const updateData = {
-          tuition_fee: submitData.tuition_fee,
-          hostel_fee: submitData.hostel_fee,
-        };
-        await apiClient.updateFeeStructure(feeStructure.id, updateData);
+      if (isEditMode) {
+        await apiClient.updateFeeStructure(feeStructure.id, {
+          tuition_fee: data.tuition_fee,
+          hostel_fee: data.hostel_fee,
+        });
       } else {
-        await apiClient.createFeeStructure(submitData);
+        await apiClient.createFeeStructure(data);
       }
-
+      onSuccess?.();
       onClose();
+      form.reset();
     } catch (err: any) {
       console.error('Failed to save fee structure:', err);
-      setError(
-        err.response?.data?.detail ||
-        'Failed to save fee structure. Please check all fields.'
-      );
-    } finally {
-      setLoading(false);
+      form.setError('root', {
+        type: 'manual',
+        message:
+          err.response?.data?.detail || 'Failed to save fee structure. Please check all fields.',
+      });
     }
   };
 
-  const getTotalFee = () => {
-    const tuition = parseFloat(formData.tuition_fee) || 0;
-    const hostel = parseFloat(formData.hostel_fee) || 0;
-    return (tuition + hostel).toFixed(2);
-  };
-
   return (
-    <div className="fixed inset-0 bg-gray-600 bg-opacity-50 overflow-y-auto h-full w-full z-50">
-      <div className="relative top-20 mx-auto p-5 border w-full max-w-2xl shadow-lg rounded-md bg-white">
-        <div className="flex justify-between items-center mb-4">
-          <h3 className="text-lg font-medium text-gray-900">
-            {feeStructure ? 'Edit Fee Structure' : 'Add New Fee Structure'}
-          </h3>
-          <button
-            onClick={onClose}
-            className="text-gray-400 hover:text-gray-500"
-          >
-            <span className="text-2xl">&times;</span>
-          </button>
-        </div>
+    <Dialog open={isOpen} onOpenChange={onClose}>
+      <DialogContent className="sm:max-w-[600px]">
+        <DialogHeader>
+          <DialogTitle>
+            {isEditMode ? 'Edit Fee Structure' : 'Add New Fee Structure'}
+          </DialogTitle>
+        </DialogHeader>
 
-        {error && (
-          <div className="mb-4 bg-red-50 border border-red-200 text-red-700 px-4 py-3 rounded">
-            {error}
-          </div>
-        )}
+        <Form {...form}>
+          <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-6">
+            {/* Error Message */}
+            {form.formState.errors.root && (
+              <div className="rounded-md bg-destructive/15 p-3 text-sm text-destructive">
+                {form.formState.errors.root.message}
+              </div>
+            )}
 
-        <form onSubmit={handleSubmit} className="space-y-4">
-          <div className="grid grid-cols-1 gap-4">
             {/* Class Selection */}
-            <div>
-              <label className="block text-sm font-medium text-gray-700 mb-1">
-                Class <span className="text-red-500">*</span>
-              </label>
-              <select
-                name="class_id"
-                value={formData.class_id}
-                onChange={handleChange}
-                required
-                disabled={!!feeStructure}
-                className="w-full px-3 py-2 border border-gray-300 rounded-md focus:ring-primary-500 focus:border-primary-500 disabled:bg-gray-100"
-              >
-                <option value="">Select Class</option>
-                {classes.map((cls) => (
-                  <option key={cls.id} value={cls.id}>
-                    {cls.name} {cls.section}
-                  </option>
-                ))}
-              </select>
-              {feeStructure && (
-                <p className="mt-1 text-xs text-gray-500">
-                  Class cannot be changed for existing fee structure
-                </p>
+            <FormField
+              control={form.control}
+              name="class_id"
+              render={({ field }) => (
+                <FormItem>
+                  <FormLabel>Class *</FormLabel>
+                  <Select
+                    onValueChange={field.onChange}
+                    defaultValue={field.value?.toString()}
+                    disabled={isEditMode}
+                  >
+                    <FormControl>
+                      <SelectTrigger>
+                        <SelectValue placeholder="Select a class" />
+                      </SelectTrigger>
+                    </FormControl>
+                    <SelectContent>
+                      {classes.map((cls) => (
+                        <SelectItem key={cls.id} value={cls.id.toString()}>
+                          {cls.name} {cls.section}
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                  {isEditMode && (
+                    <FormDescription>
+                      Class cannot be changed for existing fee structure
+                    </FormDescription>
+                  )}
+                  <FormMessage />
+                </FormItem>
               )}
-            </div>
+            />
 
             {/* Academic Year Selection */}
-            <div>
-              <label className="block text-sm font-medium text-gray-700 mb-1">
-                Academic Year <span className="text-red-500">*</span>
-              </label>
-              <select
-                name="academic_year_id"
-                value={formData.academic_year_id}
-                onChange={handleChange}
-                required
-                disabled={!!feeStructure}
-                className="w-full px-3 py-2 border border-gray-300 rounded-md focus:ring-primary-500 focus:border-primary-500 disabled:bg-gray-100"
-              >
-                <option value="">Select Academic Year</option>
-                {academicYears.map((year) => (
-                  <option key={year.id} value={year.id}>
-                    {year.name} {year.is_current ? '(Current)' : ''}
-                  </option>
-                ))}
-              </select>
-              {feeStructure && (
-                <p className="mt-1 text-xs text-gray-500">
-                  Academic year cannot be changed for existing fee structure
-                </p>
+            <FormField
+              control={form.control}
+              name="academic_year_id"
+              render={({ field }) => (
+                <FormItem>
+                  <FormLabel>Academic Year *</FormLabel>
+                  <Select
+                    onValueChange={field.onChange}
+                    defaultValue={field.value?.toString()}
+                    disabled={isEditMode}
+                  >
+                    <FormControl>
+                      <SelectTrigger>
+                        <SelectValue placeholder="Select academic year" />
+                      </SelectTrigger>
+                    </FormControl>
+                    <SelectContent>
+                      {academicYears.map((year) => (
+                        <SelectItem key={year.id} value={year.id.toString()}>
+                          {year.name} {year.is_current ? '(Current)' : ''}
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                  {isEditMode && (
+                    <FormDescription>
+                      Academic year cannot be changed for existing fee structure
+                    </FormDescription>
+                  )}
+                  <FormMessage />
+                </FormItem>
               )}
-            </div>
+            />
 
             {/* Tuition Fee */}
-            <div>
-              <label className="block text-sm font-medium text-gray-700 mb-1">
-                Tuition Fee (Rs. per month) <span className="text-red-500">*</span>
-              </label>
-              <input
-                type="number"
-                name="tuition_fee"
-                value={formData.tuition_fee}
-                onChange={handleChange}
-                required
-                min="0"
-                step="0.01"
-                placeholder="Enter amount in rupees"
-                className="w-full px-3 py-2 border border-gray-300 rounded-md focus:ring-primary-500 focus:border-primary-500"
-              />
-              <p className="mt-1 text-xs text-gray-500">
-                Enter monthly tuition fee amount
-              </p>
-            </div>
+            <FormField
+              control={form.control}
+              name="tuition_fee"
+              render={({ field }) => (
+                <FormItem>
+                  <FormLabel>Tuition Fee (₹ per month) *</FormLabel>
+                  <FormControl>
+                    <Input
+                      type="number"
+                      step="0.01"
+                      placeholder="Enter amount in rupees"
+                      {...field}
+                    />
+                  </FormControl>
+                  <FormDescription>
+                    Enter monthly tuition fee amount
+                  </FormDescription>
+                  <FormMessage />
+                </FormItem>
+              )}
+            />
 
             {/* Hostel Fee */}
-            <div>
-              <label className="block text-sm font-medium text-gray-700 mb-1">
-                Hostel Fee (Rs. per month)
-              </label>
-              <input
-                type="number"
-                name="hostel_fee"
-                value={formData.hostel_fee}
-                onChange={handleChange}
-                min="0"
-                step="0.01"
-                placeholder="Enter amount in rupees (optional)"
-                className="w-full px-3 py-2 border border-gray-300 rounded-md focus:ring-primary-500 focus:border-primary-500"
-              />
-              <p className="mt-1 text-xs text-gray-500">
-                Enter hostel fee if applicable (leave 0 if not)
-              </p>
-            </div>
+            <FormField
+              control={form.control}
+              name="hostel_fee"
+              render={({ field }) => (
+                <FormItem>
+                  <FormLabel>Hostel Fee (₹ per month)</FormLabel>
+                  <FormControl>
+                    <Input
+                      type="number"
+                      step="0.01"
+                      placeholder="Enter amount in rupees (optional)"
+                      {...field}
+                    />
+                  </FormControl>
+                  <FormDescription>
+                    Enter hostel fee if applicable (leave 0 if not)
+                  </FormDescription>
+                  <FormMessage />
+                </FormItem>
+              )}
+            />
 
             {/* Total Fee Display */}
-            <div className="bg-blue-50 border border-blue-200 rounded-md p-4">
+            <Card className="p-4 bg-primary/5 border-primary/20">
               <div className="flex justify-between items-center">
-                <span className="text-sm font-medium text-blue-900">
-                  Total Monthly Fee:
-                </span>
-                <span className="text-lg font-bold text-blue-900">
-                  Rs. {getTotalFee()}
-                </span>
+                <span className="text-sm font-medium">Total Monthly Fee:</span>
+                <span className="text-2xl font-bold text-primary">₹{totalFee}</span>
               </div>
-              <p className="mt-1 text-xs text-blue-700">
+              <p className="mt-2 text-xs text-muted-foreground">
                 This is the total monthly fee that will be charged to students in this class
               </p>
-            </div>
-          </div>
+            </Card>
 
-          {/* Form Actions */}
-          <div className="flex justify-end space-x-3 pt-4 border-t">
-            <button
-              type="button"
-              onClick={onClose}
-              className="px-4 py-2 border border-gray-300 rounded-md text-gray-700 hover:bg-gray-50"
-            >
-              Cancel
-            </button>
-            <button
-              type="submit"
-              disabled={loading}
-              className="px-4 py-2 bg-primary-600 text-white rounded-md hover:bg-primary-700 disabled:bg-gray-400"
-            >
-              {loading ? 'Saving...' : feeStructure ? 'Update Fee Structure' : 'Add Fee Structure'}
-            </button>
-          </div>
-        </form>
-      </div>
-    </div>
+            {/* Form Actions */}
+            <div className="flex justify-end gap-3 pt-4 border-t">
+              <Button type="button" variant="outline" onClick={onClose} disabled={form.formState.isSubmitting}>
+                Cancel
+              </Button>
+              <Button type="submit" disabled={form.formState.isSubmitting}>
+                {form.formState.isSubmitting
+                  ? 'Saving...'
+                  : isEditMode
+                  ? 'Update Fee Structure'
+                  : 'Add Fee Structure'}
+              </Button>
+            </div>
+          </form>
+        </Form>
+      </DialogContent>
+    </Dialog>
   );
 }

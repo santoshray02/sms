@@ -1,5 +1,114 @@
-import { useState, useEffect } from 'react';
+import { useEffect, useState } from 'react';
+import { useForm } from 'react-hook-form';
+import { zodResolver } from '@hookform/resolvers/zod';
+import { z } from 'zod';
 import { apiClient } from '../services/api';
+import {
+  Dialog,
+  DialogContent,
+  DialogHeader,
+  DialogTitle,
+} from './ui/dialog';
+import {
+  Form,
+  FormControl,
+  FormDescription,
+  FormField,
+  FormItem,
+  FormLabel,
+  FormMessage,
+} from './ui/form';
+import {
+  Accordion,
+  AccordionContent,
+  AccordionItem,
+  AccordionTrigger,
+} from './ui/accordion';
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from './ui/select';
+import { Input } from './ui/input';
+import { Textarea } from './ui/textarea';
+import { Checkbox } from './ui/checkbox';
+import { Button } from './ui/button';
+
+// Zod validation schema
+const studentSchema = z.object({
+  // Basic Information
+  admission_number: z.string().min(1, 'Admission number is required'),
+  first_name: z.string().min(1, 'First name is required'),
+  last_name: z.string().min(1, 'Last name is required'),
+  date_of_birth: z.string().min(1, 'Date of birth is required'),
+  gender: z.enum(['Male', 'Female', 'Other'], {
+    required_error: 'Please select a gender',
+  }),
+  class_id: z.coerce.number({
+    required_error: 'Please select a class',
+    invalid_type_error: 'Please select a class',
+  }).positive(),
+  academic_year_id: z.coerce.number({
+    required_error: 'Please select an academic year',
+    invalid_type_error: 'Please select an academic year',
+  }).positive(),
+  status: z.enum(['active', 'inactive', 'graduated']).optional(),
+
+  // Guardian Information
+  guardian_id: z.coerce.number().optional().or(z.literal('')),
+  parent_name: z.string().optional(),
+  parent_phone: z.string().optional(),
+  parent_email: z.string().email('Invalid email').optional().or(z.literal('')),
+  address: z.string().optional(),
+
+  // Government Compliance
+  category: z.string().optional(),
+  caste: z.string().optional(),
+  religion: z.string().optional(),
+  caste_certificate_number: z.string().optional(),
+  income_certificate_number: z.string().optional(),
+  bpl_card_number: z.string().optional(),
+  aadhaar_number: z.string()
+    .regex(/^(\d{12})?$/, 'Must be exactly 12 digits')
+    .optional()
+    .or(z.literal('')),
+  blood_group: z.string().optional(),
+
+  // Scholarship & Concession
+  scholarship_type: z.string().optional(),
+  scholarship_amount: z.coerce.number().min(0, 'Cannot be negative').optional().or(z.literal('')),
+  concession_percentage: z.coerce.number().min(0, 'Cannot be negative').max(100, 'Cannot exceed 100').optional().or(z.literal('')),
+  concession_reason: z.string().optional(),
+
+  // Board Exam
+  board_registration_number: z.string().optional(),
+  roll_number: z.string().optional(),
+
+  // Performance
+  average_marks: z.coerce.number().min(0).max(100, 'Cannot exceed 100').optional().or(z.literal('')),
+  attendance_percentage: z.coerce.number().min(0).max(100, 'Cannot exceed 100').optional().or(z.literal('')),
+
+  // Fee Configuration
+  transport_route_id: z.coerce.number().optional().or(z.literal('')),
+  has_hostel: z.boolean().default(false),
+  photo_url: z.string().optional(),
+}).refine(
+  (data) => {
+    // If no guardian_id, require parent_name and parent_phone
+    if (!data.guardian_id) {
+      return !!data.parent_name && !!data.parent_phone;
+    }
+    return true;
+  },
+  {
+    message: 'Parent name and phone are required when not linking to a guardian',
+    path: ['parent_name'],
+  }
+);
+
+type StudentFormData = z.infer<typeof studentSchema>;
 
 interface Student {
   id: number;
@@ -10,15 +119,11 @@ interface Student {
   gender: string;
   class_id: number;
   academic_year_id?: number;
-
-  // Guardian (new or legacy parent)
   guardian_id?: number;
   parent_name?: string;
   parent_phone?: string;
   parent_email?: string;
   address?: string;
-
-  // Government compliance
   category?: string;
   caste?: string;
   religion?: string;
@@ -26,22 +131,16 @@ interface Student {
   income_certificate_number?: string;
   bpl_card_number?: string;
   aadhaar_number?: string;
-
-  // Additional info
   blood_group?: string;
   photo_url?: string;
-
-  // Scholarship
   scholarship_type?: string;
   scholarship_amount?: number;
   concession_percentage?: number;
   concession_reason?: string;
-
-  // Board exam
   board_registration_number?: string;
   roll_number?: string;
-
-  // Fee config
+  average_marks?: number;
+  attendance_percentage?: number;
   has_hostel?: boolean;
   transport_route_id?: number;
   status: string;
@@ -54,64 +153,53 @@ interface StudentFormProps {
 }
 
 export default function StudentFormEnhanced({ student, classes, onClose }: StudentFormProps) {
-  const [loading, setLoading] = useState(false);
-  const [error, setError] = useState<string | null>(null);
   const [academicYears, setAcademicYears] = useState<any[]>([]);
   const [transportRoutes, setTransportRoutes] = useState<any[]>([]);
   const [guardians, setGuardians] = useState<any[]>([]);
-  const [expandedSections, setExpandedSections] = useState<{ [key: string]: boolean }>({
-    basic: true,
-    guardian: false,
-    government: false,
-    scholarship: false,
-    board: false,
-    additional: false,
+
+  const form = useForm<StudentFormData>({
+    resolver: zodResolver(studentSchema),
+    defaultValues: student ? {
+      admission_number: student.admission_number,
+      first_name: student.first_name,
+      last_name: student.last_name,
+      date_of_birth: student.date_of_birth,
+      gender: student.gender as any,
+      class_id: student.class_id,
+      academic_year_id: student.academic_year_id,
+      status: student.status as any,
+      guardian_id: student.guardian_id || '',
+      parent_name: student.parent_name || '',
+      parent_phone: student.parent_phone || '',
+      parent_email: student.parent_email || '',
+      address: student.address || '',
+      category: student.category || '',
+      caste: student.caste || '',
+      religion: student.religion || '',
+      caste_certificate_number: student.caste_certificate_number || '',
+      income_certificate_number: student.income_certificate_number || '',
+      bpl_card_number: student.bpl_card_number || '',
+      aadhaar_number: student.aadhaar_number || '',
+      blood_group: student.blood_group || '',
+      photo_url: student.photo_url || '',
+      scholarship_type: student.scholarship_type || '',
+      scholarship_amount: student.scholarship_amount ? student.scholarship_amount / 100 : '',
+      concession_percentage: student.concession_percentage || '',
+      concession_reason: student.concession_reason || '',
+      board_registration_number: student.board_registration_number || '',
+      roll_number: student.roll_number || '',
+      average_marks: student.average_marks || '',
+      attendance_percentage: student.attendance_percentage || '',
+      transport_route_id: student.transport_route_id || '',
+      has_hostel: student.has_hostel || false,
+    } : {
+      gender: 'Male',
+      has_hostel: false,
+      concession_percentage: '',
+    },
   });
 
-  const [formData, setFormData] = useState({
-    admission_number: student?.admission_number || '',
-    first_name: student?.first_name || '',
-    last_name: student?.last_name || '',
-    date_of_birth: student?.date_of_birth || '',
-    gender: student?.gender || 'Male',
-    class_id: student?.class_id || '',
-    academic_year_id: student?.academic_year_id || '',
-
-    // Guardian
-    guardian_id: student?.guardian_id || '',
-    parent_name: student?.parent_name || '',
-    parent_phone: student?.parent_phone || '',
-    parent_email: student?.parent_email || '',
-    address: student?.address || '',
-
-    // Government
-    category: student?.category || '',
-    caste: student?.caste || '',
-    religion: student?.religion || '',
-    caste_certificate_number: student?.caste_certificate_number || '',
-    income_certificate_number: student?.income_certificate_number || '',
-    bpl_card_number: student?.bpl_card_number || '',
-    aadhaar_number: student?.aadhaar_number || '',
-
-    // Additional
-    blood_group: student?.blood_group || '',
-    photo_url: student?.photo_url || '',
-
-    // Scholarship
-    scholarship_type: student?.scholarship_type || '',
-    scholarship_amount: student?.scholarship_amount ? student.scholarship_amount / 100 : '',
-    concession_percentage: student?.concession_percentage || 0,
-    concession_reason: student?.concession_reason || '',
-
-    // Board
-    board_registration_number: student?.board_registration_number || '',
-    roll_number: student?.roll_number || '',
-
-    // Fee config
-    has_hostel: student?.has_hostel || false,
-    transport_route_id: student?.transport_route_id || '',
-    status: student?.status || 'active',
-  });
+  const guardianId = form.watch('guardian_id');
 
   useEffect(() => {
     fetchAcademicYears();
@@ -126,7 +214,7 @@ export default function StudentFormEnhanced({ student, classes, onClose }: Stude
       if (!student && data.length > 0) {
         const currentYear = data.find((year: any) => year.is_current);
         if (currentYear) {
-          setFormData(prev => ({ ...prev, academic_year_id: currentYear.id }));
+          form.setValue('academic_year_id', currentYear.id);
         }
       }
     } catch (err) {
@@ -152,74 +240,60 @@ export default function StudentFormEnhanced({ student, classes, onClose }: Stude
     }
   };
 
-  const toggleSection = (section: string) => {
-    setExpandedSections(prev => ({ ...prev, [section]: !prev[section] }));
-  };
-
-  const handleChange = (e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement | HTMLTextAreaElement>) => {
-    const { name, value, type } = e.target;
-    if (type === 'checkbox') {
-      const checked = (e.target as HTMLInputElement).checked;
-      setFormData(prev => ({ ...prev, [name]: checked }));
-    } else {
-      setFormData(prev => ({ ...prev, [name]: value }));
-    }
-  };
-
-  const handleSubmit = async (e: React.FormEvent) => {
-    e.preventDefault();
-    setError(null);
-    setLoading(true);
-
+  const onSubmit = async (data: StudentFormData) => {
     try {
       const submitData: any = {
-        admission_number: formData.admission_number,
-        first_name: formData.first_name,
-        last_name: formData.last_name,
-        date_of_birth: formData.date_of_birth,
-        gender: formData.gender,
-        class_id: Number(formData.class_id),
-        academic_year_id: Number(formData.academic_year_id),
-        has_hostel: formData.has_hostel,
-        concession_percentage: Number(formData.concession_percentage) || 0,
+        admission_number: data.admission_number,
+        first_name: data.first_name,
+        last_name: data.last_name,
+        date_of_birth: data.date_of_birth,
+        gender: data.gender,
+        class_id: Number(data.class_id),
+        academic_year_id: Number(data.academic_year_id),
+        has_hostel: data.has_hostel,
+        concession_percentage: Number(data.concession_percentage) || 0,
       };
 
       // Guardian or legacy parent
-      if (formData.guardian_id) {
-        submitData.guardian_id = Number(formData.guardian_id);
+      if (data.guardian_id) {
+        submitData.guardian_id = Number(data.guardian_id);
       } else {
-        if (formData.parent_name) submitData.parent_name = formData.parent_name;
-        if (formData.parent_phone) submitData.parent_phone = formData.parent_phone;
+        if (data.parent_name) submitData.parent_name = data.parent_name;
+        if (data.parent_phone) submitData.parent_phone = data.parent_phone;
       }
 
       // Optional fields
-      if (formData.parent_email) submitData.parent_email = formData.parent_email;
-      if (formData.address) submitData.address = formData.address;
-      if (formData.transport_route_id) submitData.transport_route_id = Number(formData.transport_route_id);
+      if (data.parent_email) submitData.parent_email = data.parent_email;
+      if (data.address) submitData.address = data.address;
+      if (data.transport_route_id) submitData.transport_route_id = Number(data.transport_route_id);
 
       // Government fields
-      if (formData.category) submitData.category = formData.category;
-      if (formData.caste) submitData.caste = formData.caste;
-      if (formData.religion) submitData.religion = formData.religion;
-      if (formData.caste_certificate_number) submitData.caste_certificate_number = formData.caste_certificate_number;
-      if (formData.income_certificate_number) submitData.income_certificate_number = formData.income_certificate_number;
-      if (formData.bpl_card_number) submitData.bpl_card_number = formData.bpl_card_number;
-      if (formData.aadhaar_number) submitData.aadhaar_number = formData.aadhaar_number;
+      if (data.category) submitData.category = data.category;
+      if (data.caste) submitData.caste = data.caste;
+      if (data.religion) submitData.religion = data.religion;
+      if (data.caste_certificate_number) submitData.caste_certificate_number = data.caste_certificate_number;
+      if (data.income_certificate_number) submitData.income_certificate_number = data.income_certificate_number;
+      if (data.bpl_card_number) submitData.bpl_card_number = data.bpl_card_number;
+      if (data.aadhaar_number) submitData.aadhaar_number = data.aadhaar_number;
 
       // Additional
-      if (formData.blood_group) submitData.blood_group = formData.blood_group;
-      if (formData.photo_url) submitData.photo_url = formData.photo_url;
+      if (data.blood_group) submitData.blood_group = data.blood_group;
+      if (data.photo_url) submitData.photo_url = data.photo_url;
 
       // Scholarship
-      if (formData.scholarship_type) submitData.scholarship_type = formData.scholarship_type;
-      if (formData.scholarship_amount) submitData.scholarship_amount = Number(formData.scholarship_amount) * 100;
-      if (formData.concession_reason) submitData.concession_reason = formData.concession_reason;
+      if (data.scholarship_type) submitData.scholarship_type = data.scholarship_type;
+      if (data.scholarship_amount) submitData.scholarship_amount = Number(data.scholarship_amount) * 100;
+      if (data.concession_reason) submitData.concession_reason = data.concession_reason;
 
       // Board
-      if (formData.board_registration_number) submitData.board_registration_number = formData.board_registration_number;
-      if (formData.roll_number) submitData.roll_number = formData.roll_number;
+      if (data.board_registration_number) submitData.board_registration_number = data.board_registration_number;
+      if (data.roll_number) submitData.roll_number = data.roll_number;
 
-      if (student) submitData.status = formData.status;
+      // Performance
+      if (data.average_marks) submitData.average_marks = Number(data.average_marks);
+      if (data.attendance_percentage) submitData.attendance_percentage = Number(data.attendance_percentage);
+
+      if (student) submitData.status = data.status;
 
       if (student) {
         await apiClient.updateStudent(student.id, submitData);
@@ -230,537 +304,669 @@ export default function StudentFormEnhanced({ student, classes, onClose }: Stude
       onClose();
     } catch (err: any) {
       console.error('Failed to save student:', err);
-      setError(err.response?.data?.detail || 'Failed to save student');
-    } finally {
-      setLoading(false);
+      form.setError('root', {
+        type: 'manual',
+        message: err.response?.data?.detail || 'Failed to save student. Please check all fields.',
+      });
     }
   };
 
-  const Section = ({ title, name, children }: { title: string; name: string; children: React.ReactNode }) => (
-    <div className="border border-gray-200 rounded-lg overflow-hidden">
-      <button
-        type="button"
-        onClick={() => toggleSection(name)}
-        className="w-full px-4 py-3 bg-gray-50 hover:bg-gray-100 flex items-center justify-between transition-colors"
-      >
-        <span className="font-medium text-gray-900 text-sm sm:text-base">{title}</span>
-        <svg
-          className={`h-5 w-5 text-gray-500 transition-transform ${expandedSections[name] ? 'transform rotate-180' : ''}`}
-          fill="none"
-          stroke="currentColor"
-          viewBox="0 0 24 24"
-        >
-          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
-        </svg>
-      </button>
-      {expandedSections[name] && (
-        <div className="px-4 py-4 bg-white">
-          {children}
-        </div>
-      )}
-    </div>
-  );
-
   return (
-    <div className="fixed inset-0 bg-gray-500 bg-opacity-75 flex items-center justify-center p-2 sm:p-4 z-50 overflow-y-auto">
-      <div className="bg-white rounded-lg max-w-4xl w-full my-4 max-h-[95vh] flex flex-col">
-        {/* Header */}
-        <div className="sticky top-0 bg-white border-b border-gray-200 px-4 sm:px-6 py-4 rounded-t-lg flex-shrink-0">
-          <div className="flex items-center justify-between">
-            <h3 className="text-lg sm:text-xl font-semibold text-gray-900">
-              {student ? 'Edit Student' : 'Add New Student'}
-            </h3>
-            <button onClick={onClose} className="text-gray-400 hover:text-gray-500 p-1" type="button">
-              <svg className="h-6 w-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
-              </svg>
-            </button>
-          </div>
-        </div>
+    <Dialog open onOpenChange={onClose}>
+      <DialogContent className="sm:max-w-4xl max-h-[95vh] overflow-y-auto">
+        <DialogHeader>
+          <DialogTitle>{student ? 'Edit Student' : 'Add New Student'}</DialogTitle>
+        </DialogHeader>
 
-        {/* Form */}
-        <form onSubmit={handleSubmit} className="flex-1 overflow-y-auto px-4 sm:px-6 py-4">
-          {error && (
-            <div className="mb-4 bg-red-50 border border-red-200 text-red-700 px-4 py-3 rounded-lg text-sm">
-              {error}
-            </div>
-          )}
+        <Form {...form}>
+          <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-6">
+            {/* Error Message */}
+            {form.formState.errors.root && (
+              <div className="rounded-md bg-destructive/15 p-3 text-sm text-destructive">
+                {form.formState.errors.root.message}
+              </div>
+            )}
 
-          <div className="space-y-4">
-            {/* Basic Information */}
-            <Section title="📋 Basic Information" name="basic">
-              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                <div className="sm:col-span-2 sm:grid sm:grid-cols-2 sm:gap-4">
-                  <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-1.5">
-                      Admission Number <span className="text-red-500">*</span>
-                    </label>
-                    <input
-                      type="text"
+            <Accordion type="multiple" defaultValue={['basic']} className="w-full">
+              {/* Basic Information */}
+              <AccordionItem value="basic">
+                <AccordionTrigger className="text-base font-semibold">
+                  📋 Basic Information
+                </AccordionTrigger>
+                <AccordionContent className="space-y-4 pt-4">
+                  <div className="grid grid-cols-2 gap-4">
+                    <FormField
+                      control={form.control}
                       name="admission_number"
-                      value={formData.admission_number}
-                      onChange={handleChange}
-                      required
-                      disabled={!!student}
-                      className="w-full px-3 py-2.5 border border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 disabled:bg-gray-100 text-base"
+                      render={({ field }) => (
+                        <FormItem>
+                          <FormLabel>Admission Number *</FormLabel>
+                          <FormControl>
+                            <Input {...field} disabled={!!student} />
+                          </FormControl>
+                          {!!student && (
+                            <FormDescription>Cannot be changed</FormDescription>
+                          )}
+                          <FormMessage />
+                        </FormItem>
+                      )}
                     />
-                  </div>
-                  <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-1.5">
-                      Academic Year <span className="text-red-500">*</span>
-                    </label>
-                    <select
+
+                    <FormField
+                      control={form.control}
                       name="academic_year_id"
-                      value={formData.academic_year_id}
-                      onChange={handleChange}
-                      required
-                      className="w-full px-3 py-2.5 border border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 text-base"
-                    >
-                      <option value="">Select Year</option>
-                      {academicYears.map((year) => (
-                        <option key={year.id} value={year.id}>
-                          {year.name} {year.is_current ? '(Current)' : ''}
-                        </option>
-                      ))}
-                    </select>
+                      render={({ field }) => (
+                        <FormItem>
+                          <FormLabel>Academic Year *</FormLabel>
+                          <Select onValueChange={field.onChange} value={field.value?.toString()}>
+                            <FormControl>
+                              <SelectTrigger>
+                                <SelectValue placeholder="Select year" />
+                              </SelectTrigger>
+                            </FormControl>
+                            <SelectContent>
+                              {academicYears.map((year) => (
+                                <SelectItem key={year.id} value={year.id.toString()}>
+                                  {year.name} {year.is_current ? '(Current)' : ''}
+                                </SelectItem>
+                              ))}
+                            </SelectContent>
+                          </Select>
+                          <FormMessage />
+                        </FormItem>
+                      )}
+                    />
+
+                    <FormField
+                      control={form.control}
+                      name="first_name"
+                      render={({ field }) => (
+                        <FormItem>
+                          <FormLabel>First Name *</FormLabel>
+                          <FormControl>
+                            <Input {...field} />
+                          </FormControl>
+                          <FormMessage />
+                        </FormItem>
+                      )}
+                    />
+
+                    <FormField
+                      control={form.control}
+                      name="last_name"
+                      render={({ field }) => (
+                        <FormItem>
+                          <FormLabel>Last Name *</FormLabel>
+                          <FormControl>
+                            <Input {...field} />
+                          </FormControl>
+                          <FormMessage />
+                        </FormItem>
+                      )}
+                    />
+
+                    <FormField
+                      control={form.control}
+                      name="date_of_birth"
+                      render={({ field }) => (
+                        <FormItem>
+                          <FormLabel>Date of Birth *</FormLabel>
+                          <FormControl>
+                            <Input type="date" {...field} />
+                          </FormControl>
+                          <FormMessage />
+                        </FormItem>
+                      )}
+                    />
+
+                    <FormField
+                      control={form.control}
+                      name="gender"
+                      render={({ field }) => (
+                        <FormItem>
+                          <FormLabel>Gender *</FormLabel>
+                          <Select onValueChange={field.onChange} defaultValue={field.value}>
+                            <FormControl>
+                              <SelectTrigger>
+                                <SelectValue />
+                              </SelectTrigger>
+                            </FormControl>
+                            <SelectContent>
+                              <SelectItem value="Male">Male</SelectItem>
+                              <SelectItem value="Female">Female</SelectItem>
+                              <SelectItem value="Other">Other</SelectItem>
+                            </SelectContent>
+                          </Select>
+                          <FormMessage />
+                        </FormItem>
+                      )}
+                    />
+
+                    <FormField
+                      control={form.control}
+                      name="class_id"
+                      render={({ field }) => (
+                        <FormItem>
+                          <FormLabel>Class *</FormLabel>
+                          <Select onValueChange={field.onChange} value={field.value?.toString()}>
+                            <FormControl>
+                              <SelectTrigger>
+                                <SelectValue placeholder="Select class" />
+                              </SelectTrigger>
+                            </FormControl>
+                            <SelectContent>
+                              {classes.map((cls) => (
+                                <SelectItem key={cls.id} value={cls.id.toString()}>
+                                  {cls.name} {cls.section}
+                                </SelectItem>
+                              ))}
+                            </SelectContent>
+                          </Select>
+                          <FormMessage />
+                        </FormItem>
+                      )}
+                    />
+
+                    {student && (
+                      <FormField
+                        control={form.control}
+                        name="status"
+                        render={({ field }) => (
+                          <FormItem>
+                            <FormLabel>Status</FormLabel>
+                            <Select onValueChange={field.onChange} value={field.value}>
+                              <FormControl>
+                                <SelectTrigger>
+                                  <SelectValue />
+                                </SelectTrigger>
+                              </FormControl>
+                              <SelectContent>
+                                <SelectItem value="active">Active</SelectItem>
+                                <SelectItem value="inactive">Inactive</SelectItem>
+                                <SelectItem value="graduated">Graduated</SelectItem>
+                              </SelectContent>
+                            </Select>
+                            <FormMessage />
+                          </FormItem>
+                        )}
+                      />
+                    )}
                   </div>
-                </div>
+                </AccordionContent>
+              </AccordionItem>
 
-                <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-1.5">
-                    First Name <span className="text-red-500">*</span>
-                  </label>
-                  <input
-                    type="text"
-                    name="first_name"
-                    value={formData.first_name}
-                    onChange={handleChange}
-                    required
-                    className="w-full px-3 py-2.5 border border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 text-base"
-                  />
-                </div>
-
-                <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-1.5">
-                    Last Name <span className="text-red-500">*</span>
-                  </label>
-                  <input
-                    type="text"
-                    name="last_name"
-                    value={formData.last_name}
-                    onChange={handleChange}
-                    required
-                    className="w-full px-3 py-2.5 border border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 text-base"
-                  />
-                </div>
-
-                <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-1.5">
-                    Date of Birth <span className="text-red-500">*</span>
-                  </label>
-                  <input
-                    type="date"
-                    name="date_of_birth"
-                    value={formData.date_of_birth}
-                    onChange={handleChange}
-                    required
-                    className="w-full px-3 py-2.5 border border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 text-base"
-                  />
-                </div>
-
-                <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-1.5">
-                    Gender <span className="text-red-500">*</span>
-                  </label>
-                  <select
-                    name="gender"
-                    value={formData.gender}
-                    onChange={handleChange}
-                    required
-                    className="w-full px-3 py-2.5 border border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 text-base"
-                  >
-                    <option value="Male">Male</option>
-                    <option value="Female">Female</option>
-                    <option value="Other">Other</option>
-                  </select>
-                </div>
-
-                <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-1.5">
-                    Class <span className="text-red-500">*</span>
-                  </label>
-                  <select
-                    name="class_id"
-                    value={formData.class_id}
-                    onChange={handleChange}
-                    required
-                    className="w-full px-3 py-2.5 border border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 text-base"
-                  >
-                    <option value="">Select Class</option>
-                    {classes.map((cls) => (
-                      <option key={cls.id} value={cls.id}>
-                        {cls.name} {cls.section}
-                      </option>
-                    ))}
-                  </select>
-                </div>
-
-                {student && (
-                  <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-1.5">Status</label>
-                    <select
-                      name="status"
-                      value={formData.status}
-                      onChange={handleChange}
-                      className="w-full px-3 py-2.5 border border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 text-base"
-                    >
-                      <option value="active">Active</option>
-                      <option value="inactive">Inactive</option>
-                      <option value="graduated">Graduated</option>
-                    </select>
-                  </div>
-                )}
-              </div>
-            </Section>
-
-            {/* Guardian Information */}
-            <Section title="👨‍👩‍👧‍👦 Guardian Information" name="guardian">
-              <div className="space-y-4">
-                <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-1.5">
-                    Link to Guardian (Recommended for siblings)
-                  </label>
-                  <select
+              {/* Guardian Information */}
+              <AccordionItem value="guardian">
+                <AccordionTrigger className="text-base font-semibold">
+                  👨‍👩‍👧‍👦 Guardian Information
+                </AccordionTrigger>
+                <AccordionContent className="space-y-4 pt-4">
+                  <FormField
+                    control={form.control}
                     name="guardian_id"
-                    value={formData.guardian_id}
-                    onChange={handleChange}
-                    className="w-full px-3 py-2.5 border border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 text-base"
-                  >
-                    <option value="">No Guardian (Use fields below)</option>
-                    {guardians.map((guardian) => (
-                      <option key={guardian.id} value={guardian.id}>
-                        {guardian.full_name} - {guardian.phone} ({guardian.relation})
-                      </option>
-                    ))}
-                  </select>
-                  <p className="mt-1 text-xs text-gray-500">
-                    Select existing guardian or fill in parent details below
-                  </p>
-                </div>
+                    render={({ field }) => (
+                      <FormItem>
+                        <FormLabel>Link to Guardian</FormLabel>
+                        <Select onValueChange={field.onChange} value={field.value?.toString()}>
+                          <FormControl>
+                            <SelectTrigger>
+                              <SelectValue placeholder="No Guardian (Use fields below)" />
+                            </SelectTrigger>
+                          </FormControl>
+                          <SelectContent>
+                            <SelectItem value="">No Guardian</SelectItem>
+                            {guardians.map((guardian) => (
+                              <SelectItem key={guardian.id} value={guardian.id.toString()}>
+                                {guardian.full_name} - {guardian.phone} ({guardian.relation})
+                              </SelectItem>
+                            ))}
+                          </SelectContent>
+                        </Select>
+                        <FormDescription>
+                          Recommended for siblings
+                        </FormDescription>
+                        <FormMessage />
+                      </FormItem>
+                    )}
+                  />
 
-                <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                  <div className="sm:col-span-2">
-                    <label className="block text-sm font-medium text-gray-700 mb-1.5">
-                      Parent/Guardian Name {!formData.guardian_id && <span className="text-red-500">*</span>}
-                    </label>
-                    <input
-                      type="text"
-                      name="parent_name"
-                      value={formData.parent_name}
-                      onChange={handleChange}
-                      required={!formData.guardian_id}
-                      disabled={!!formData.guardian_id}
-                      className="w-full px-3 py-2.5 border border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 disabled:bg-gray-100 text-base"
-                    />
-                  </div>
+                  <div className="grid grid-cols-2 gap-4">
+                    <div className="col-span-2">
+                      <FormField
+                        control={form.control}
+                        name="parent_name"
+                        render={({ field }) => (
+                          <FormItem>
+                            <FormLabel>
+                              Parent/Guardian Name {!guardianId && '*'}
+                            </FormLabel>
+                            <FormControl>
+                              <Input {...field} disabled={!!guardianId} />
+                            </FormControl>
+                            <FormMessage />
+                          </FormItem>
+                        )}
+                      />
+                    </div>
 
-                  <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-1.5">
-                      Phone {!formData.guardian_id && <span className="text-red-500">*</span>}
-                    </label>
-                    <input
-                      type="tel"
+                    <FormField
+                      control={form.control}
                       name="parent_phone"
-                      value={formData.parent_phone}
-                      onChange={handleChange}
-                      required={!formData.guardian_id}
-                      disabled={!!formData.guardian_id}
-                      placeholder="10-15 digits"
-                      className="w-full px-3 py-2.5 border border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 disabled:bg-gray-100 text-base"
+                      render={({ field }) => (
+                        <FormItem>
+                          <FormLabel>Phone {!guardianId && '*'}</FormLabel>
+                          <FormControl>
+                            <Input type="tel" placeholder="10-15 digits" {...field} disabled={!!guardianId} />
+                          </FormControl>
+                          <FormMessage />
+                        </FormItem>
+                      )}
                     />
-                  </div>
 
-                  <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-1.5">Email</label>
-                    <input
-                      type="email"
+                    <FormField
+                      control={form.control}
                       name="parent_email"
-                      value={formData.parent_email}
-                      onChange={handleChange}
-                      className="w-full px-3 py-2.5 border border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 text-base"
+                      render={({ field }) => (
+                        <FormItem>
+                          <FormLabel>Email</FormLabel>
+                          <FormControl>
+                            <Input type="email" {...field} />
+                          </FormControl>
+                          <FormMessage />
+                        </FormItem>
+                      )}
+                    />
+
+                    <div className="col-span-2">
+                      <FormField
+                        control={form.control}
+                        name="address"
+                        render={({ field }) => (
+                          <FormItem>
+                            <FormLabel>Address</FormLabel>
+                            <FormControl>
+                              <Textarea rows={2} {...field} />
+                            </FormControl>
+                            <FormMessage />
+                          </FormItem>
+                        )}
+                      />
+                    </div>
+                  </div>
+                </AccordionContent>
+              </AccordionItem>
+
+              {/* Government Compliance */}
+              <AccordionItem value="government">
+                <AccordionTrigger className="text-base font-semibold">
+                  🏛️ Government Compliance (RTE/CBSE)
+                </AccordionTrigger>
+                <AccordionContent className="space-y-4 pt-4">
+                  <div className="grid grid-cols-2 gap-4">
+                    <FormField
+                      control={form.control}
+                      name="category"
+                      render={({ field }) => (
+                        <FormItem>
+                          <FormLabel>Category</FormLabel>
+                          <Select onValueChange={field.onChange} value={field.value}>
+                            <FormControl>
+                              <SelectTrigger>
+                                <SelectValue placeholder="Select category" />
+                              </SelectTrigger>
+                            </FormControl>
+                            <SelectContent>
+                              <SelectItem value="General">General</SelectItem>
+                              <SelectItem value="SC">SC (Scheduled Caste)</SelectItem>
+                              <SelectItem value="ST">ST (Scheduled Tribe)</SelectItem>
+                              <SelectItem value="OBC">OBC (Other Backward Class)</SelectItem>
+                              <SelectItem value="EWS">EWS (Economically Weaker Section)</SelectItem>
+                            </SelectContent>
+                          </Select>
+                          <FormMessage />
+                        </FormItem>
+                      )}
+                    />
+
+                    <FormField
+                      control={form.control}
+                      name="religion"
+                      render={({ field }) => (
+                        <FormItem>
+                          <FormLabel>Religion</FormLabel>
+                          <FormControl>
+                            <Input placeholder="Hindu/Muslim/Christian/etc." {...field} />
+                          </FormControl>
+                          <FormMessage />
+                        </FormItem>
+                      )}
+                    />
+
+                    <FormField
+                      control={form.control}
+                      name="caste"
+                      render={({ field }) => (
+                        <FormItem>
+                          <FormLabel>Caste</FormLabel>
+                          <FormControl>
+                            <Input {...field} />
+                          </FormControl>
+                          <FormMessage />
+                        </FormItem>
+                      )}
+                    />
+
+                    <FormField
+                      control={form.control}
+                      name="caste_certificate_number"
+                      render={({ field }) => (
+                        <FormItem>
+                          <FormLabel>Caste Certificate No.</FormLabel>
+                          <FormControl>
+                            <Input {...field} />
+                          </FormControl>
+                          <FormMessage />
+                        </FormItem>
+                      )}
+                    />
+
+                    <FormField
+                      control={form.control}
+                      name="income_certificate_number"
+                      render={({ field }) => (
+                        <FormItem>
+                          <FormLabel>Income Certificate No.</FormLabel>
+                          <FormControl>
+                            <Input {...field} />
+                          </FormControl>
+                          <FormMessage />
+                        </FormItem>
+                      )}
+                    />
+
+                    <FormField
+                      control={form.control}
+                      name="bpl_card_number"
+                      render={({ field }) => (
+                        <FormItem>
+                          <FormLabel>BPL Card No.</FormLabel>
+                          <FormControl>
+                            <Input placeholder="Below Poverty Line" {...field} />
+                          </FormControl>
+                          <FormMessage />
+                        </FormItem>
+                      )}
+                    />
+
+                    <FormField
+                      control={form.control}
+                      name="aadhaar_number"
+                      render={({ field }) => (
+                        <FormItem>
+                          <FormLabel>Aadhaar Number</FormLabel>
+                          <FormControl>
+                            <Input placeholder="12-digit Aadhaar" maxLength={12} {...field} />
+                          </FormControl>
+                          <FormMessage />
+                        </FormItem>
+                      )}
+                    />
+
+                    <FormField
+                      control={form.control}
+                      name="blood_group"
+                      render={({ field }) => (
+                        <FormItem>
+                          <FormLabel>Blood Group</FormLabel>
+                          <Select onValueChange={field.onChange} value={field.value}>
+                            <FormControl>
+                              <SelectTrigger>
+                                <SelectValue placeholder="Select blood group" />
+                              </SelectTrigger>
+                            </FormControl>
+                            <SelectContent>
+                              <SelectItem value="A+">A+</SelectItem>
+                              <SelectItem value="A-">A-</SelectItem>
+                              <SelectItem value="B+">B+</SelectItem>
+                              <SelectItem value="B-">B-</SelectItem>
+                              <SelectItem value="AB+">AB+</SelectItem>
+                              <SelectItem value="AB-">AB-</SelectItem>
+                              <SelectItem value="O+">O+</SelectItem>
+                              <SelectItem value="O-">O-</SelectItem>
+                            </SelectContent>
+                          </Select>
+                          <FormMessage />
+                        </FormItem>
+                      )}
                     />
                   </div>
+                </AccordionContent>
+              </AccordionItem>
 
-                  <div className="sm:col-span-2">
-                    <label className="block text-sm font-medium text-gray-700 mb-1.5">Address</label>
-                    <textarea
-                      name="address"
-                      value={formData.address}
-                      onChange={handleChange}
-                      rows={2}
-                      className="w-full px-3 py-2.5 border border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 text-base"
+              {/* Scholarship & Concession */}
+              <AccordionItem value="scholarship">
+                <AccordionTrigger className="text-base font-semibold">
+                  💰 Scholarship & Concession
+                </AccordionTrigger>
+                <AccordionContent className="space-y-4 pt-4">
+                  <div className="grid grid-cols-2 gap-4">
+                    <FormField
+                      control={form.control}
+                      name="scholarship_type"
+                      render={({ field }) => (
+                        <FormItem>
+                          <FormLabel>Scholarship Type</FormLabel>
+                          <FormControl>
+                            <Input placeholder="NMMSS/NMMS/Post-Matric/etc." {...field} />
+                          </FormControl>
+                          <FormMessage />
+                        </FormItem>
+                      )}
+                    />
+
+                    <FormField
+                      control={form.control}
+                      name="scholarship_amount"
+                      render={({ field }) => (
+                        <FormItem>
+                          <FormLabel>Scholarship Amount (₹/month)</FormLabel>
+                          <FormControl>
+                            <Input type="number" step="0.01" min="0" placeholder="Monthly amount" {...field} />
+                          </FormControl>
+                          <FormMessage />
+                        </FormItem>
+                      )}
+                    />
+
+                    <FormField
+                      control={form.control}
+                      name="concession_percentage"
+                      render={({ field }) => (
+                        <FormItem>
+                          <FormLabel>Concession (%)</FormLabel>
+                          <FormControl>
+                            <Input type="number" min="0" max="100" placeholder="0-100" {...field} />
+                          </FormControl>
+                          <FormMessage />
+                        </FormItem>
+                      )}
+                    />
+
+                    <FormField
+                      control={form.control}
+                      name="concession_reason"
+                      render={({ field }) => (
+                        <FormItem>
+                          <FormLabel>Concession Reason</FormLabel>
+                          <FormControl>
+                            <Input placeholder="Merit/Sibling/Financial" {...field} />
+                          </FormControl>
+                          <FormMessage />
+                        </FormItem>
+                      )}
                     />
                   </div>
-                </div>
-              </div>
-            </Section>
+                </AccordionContent>
+              </AccordionItem>
 
-            {/* Government Compliance */}
-            <Section title="🏛️ Government Compliance (RTE/CBSE)" name="government">
-              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-1.5">Category</label>
-                  <select
-                    name="category"
-                    value={formData.category}
-                    onChange={handleChange}
-                    className="w-full px-3 py-2.5 border border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 text-base"
-                  >
-                    <option value="">Select Category</option>
-                    <option value="General">General</option>
-                    <option value="SC">SC (Scheduled Caste)</option>
-                    <option value="ST">ST (Scheduled Tribe)</option>
-                    <option value="OBC">OBC (Other Backward Class)</option>
-                    <option value="EWS">EWS (Economically Weaker Section)</option>
-                  </select>
-                </div>
+              {/* Board Exam */}
+              <AccordionItem value="board">
+                <AccordionTrigger className="text-base font-semibold">
+                  📝 Board Exam Information (Class 10/12)
+                </AccordionTrigger>
+                <AccordionContent className="space-y-4 pt-4">
+                  <div className="grid grid-cols-2 gap-4">
+                    <FormField
+                      control={form.control}
+                      name="board_registration_number"
+                      render={({ field }) => (
+                        <FormItem>
+                          <FormLabel>Board Registration No.</FormLabel>
+                          <FormControl>
+                            <Input placeholder="CBSE Registration Number" {...field} />
+                          </FormControl>
+                          <FormMessage />
+                        </FormItem>
+                      )}
+                    />
 
-                <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-1.5">Religion</label>
-                  <input
-                    type="text"
-                    name="religion"
-                    value={formData.religion}
-                    onChange={handleChange}
-                    placeholder="Hindu/Muslim/Christian/etc."
-                    className="w-full px-3 py-2.5 border border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 text-base"
-                  />
-                </div>
+                    <FormField
+                      control={form.control}
+                      name="roll_number"
+                      render={({ field }) => (
+                        <FormItem>
+                          <FormLabel>Roll Number</FormLabel>
+                          <FormControl>
+                            <Input placeholder="Class Roll Number" {...field} />
+                          </FormControl>
+                          <FormMessage />
+                        </FormItem>
+                      )}
+                    />
+                  </div>
+                </AccordionContent>
+              </AccordionItem>
 
-                <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-1.5">Caste</label>
-                  <input
-                    type="text"
-                    name="caste"
-                    value={formData.caste}
-                    onChange={handleChange}
-                    className="w-full px-3 py-2.5 border border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 text-base"
-                  />
-                </div>
+              {/* Performance Tracking */}
+              <AccordionItem value="performance">
+                <AccordionTrigger className="text-base font-semibold">
+                  📊 Performance Tracking
+                </AccordionTrigger>
+                <AccordionContent className="space-y-4 pt-4">
+                  <div className="grid grid-cols-2 gap-4">
+                    <FormField
+                      control={form.control}
+                      name="average_marks"
+                      render={({ field }) => (
+                        <FormItem>
+                          <FormLabel>Average Marks (%)</FormLabel>
+                          <FormControl>
+                            <Input type="number" step="0.01" min="0" max="100" placeholder="0-100" {...field} />
+                          </FormControl>
+                          <FormDescription>
+                            Used for merit-based section assignment
+                          </FormDescription>
+                          <FormMessage />
+                        </FormItem>
+                      )}
+                    />
 
-                <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-1.5">Caste Certificate No.</label>
-                  <input
-                    type="text"
-                    name="caste_certificate_number"
-                    value={formData.caste_certificate_number}
-                    onChange={handleChange}
-                    className="w-full px-3 py-2.5 border border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 text-base"
-                  />
-                </div>
+                    <FormField
+                      control={form.control}
+                      name="attendance_percentage"
+                      render={({ field }) => (
+                        <FormItem>
+                          <FormLabel>Attendance (%)</FormLabel>
+                          <FormControl>
+                            <Input type="number" step="0.01" min="0" max="100" placeholder="0-100" {...field} />
+                          </FormControl>
+                          <FormDescription>
+                            Current attendance percentage
+                          </FormDescription>
+                          <FormMessage />
+                        </FormItem>
+                      )}
+                    />
+                  </div>
+                </AccordionContent>
+              </AccordionItem>
 
-                <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-1.5">Income Certificate No.</label>
-                  <input
-                    type="text"
-                    name="income_certificate_number"
-                    value={formData.income_certificate_number}
-                    onChange={handleChange}
-                    className="w-full px-3 py-2.5 border border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 text-base"
-                  />
-                </div>
+              {/* Fee Configuration */}
+              <AccordionItem value="fee">
+                <AccordionTrigger className="text-base font-semibold">
+                  🏫 Fee Configuration
+                </AccordionTrigger>
+                <AccordionContent className="space-y-4 pt-4">
+                  <div className="grid grid-cols-2 gap-4">
+                    <FormField
+                      control={form.control}
+                      name="transport_route_id"
+                      render={({ field }) => (
+                        <FormItem>
+                          <FormLabel>Transport Route</FormLabel>
+                          <Select onValueChange={field.onChange} value={field.value?.toString()}>
+                            <FormControl>
+                              <SelectTrigger>
+                                <SelectValue placeholder="No Transport" />
+                              </SelectTrigger>
+                            </FormControl>
+                            <SelectContent>
+                              <SelectItem value="">No Transport</SelectItem>
+                              {transportRoutes.map((route) => (
+                                <SelectItem key={route.id} value={route.id.toString()}>
+                                  {route.name} - ₹{(route.monthly_fee / 100).toFixed(0)}/month
+                                </SelectItem>
+                              ))}
+                            </SelectContent>
+                          </Select>
+                          <FormMessage />
+                        </FormItem>
+                      )}
+                    />
 
-                <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-1.5">BPL Card No.</label>
-                  <input
-                    type="text"
-                    name="bpl_card_number"
-                    value={formData.bpl_card_number}
-                    onChange={handleChange}
-                    placeholder="Below Poverty Line"
-                    className="w-full px-3 py-2.5 border border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 text-base"
-                  />
-                </div>
+                    <FormField
+                      control={form.control}
+                      name="has_hostel"
+                      render={({ field }) => (
+                        <FormItem className="flex flex-row items-start space-x-3 space-y-0 pt-8">
+                          <FormControl>
+                            <Checkbox
+                              checked={field.value}
+                              onCheckedChange={field.onChange}
+                            />
+                          </FormControl>
+                          <div className="space-y-1 leading-none">
+                            <FormLabel>Hostel Facility</FormLabel>
+                          </div>
+                        </FormItem>
+                      )}
+                    />
+                  </div>
+                </AccordionContent>
+              </AccordionItem>
+            </Accordion>
 
-                <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-1.5">Aadhaar Number</label>
-                  <input
-                    type="text"
-                    name="aadhaar_number"
-                    value={formData.aadhaar_number}
-                    onChange={handleChange}
-                    placeholder="12-digit Aadhaar"
-                    maxLength={12}
-                    pattern="[0-9]{12}"
-                    className="w-full px-3 py-2.5 border border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 text-base"
-                  />
-                </div>
-
-                <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-1.5">Blood Group</label>
-                  <select
-                    name="blood_group"
-                    value={formData.blood_group}
-                    onChange={handleChange}
-                    className="w-full px-3 py-2.5 border border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 text-base"
-                  >
-                    <option value="">Select Blood Group</option>
-                    <option value="A+">A+</option>
-                    <option value="A-">A-</option>
-                    <option value="B+">B+</option>
-                    <option value="B-">B-</option>
-                    <option value="AB+">AB+</option>
-                    <option value="AB-">AB-</option>
-                    <option value="O+">O+</option>
-                    <option value="O-">O-</option>
-                  </select>
-                </div>
-              </div>
-            </Section>
-
-            {/* Scholarship & Concession */}
-            <Section title="💰 Scholarship & Concession" name="scholarship">
-              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-1.5">Scholarship Type</label>
-                  <input
-                    type="text"
-                    name="scholarship_type"
-                    value={formData.scholarship_type}
-                    onChange={handleChange}
-                    placeholder="NMMSS/NMMS/Post-Matric/etc."
-                    className="w-full px-3 py-2.5 border border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 text-base"
-                  />
-                </div>
-
-                <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-1.5">Scholarship Amount (₹/month)</label>
-                  <input
-                    type="number"
-                    name="scholarship_amount"
-                    value={formData.scholarship_amount}
-                    onChange={handleChange}
-                    placeholder="Monthly amount"
-                    min="0"
-                    className="w-full px-3 py-2.5 border border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 text-base"
-                  />
-                </div>
-
-                <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-1.5">Concession (%)</label>
-                  <input
-                    type="number"
-                    name="concession_percentage"
-                    value={formData.concession_percentage}
-                    onChange={handleChange}
-                    min="0"
-                    max="100"
-                    placeholder="0-100"
-                    className="w-full px-3 py-2.5 border border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 text-base"
-                  />
-                </div>
-
-                <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-1.5">Concession Reason</label>
-                  <input
-                    type="text"
-                    name="concession_reason"
-                    value={formData.concession_reason}
-                    onChange={handleChange}
-                    placeholder="Merit/Sibling/Financial"
-                    className="w-full px-3 py-2.5 border border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 text-base"
-                  />
-                </div>
-              </div>
-            </Section>
-
-            {/* Board Exam Information */}
-            <Section title="📝 Board Exam Information (Class 10/12)" name="board">
-              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-1.5">Board Registration No.</label>
-                  <input
-                    type="text"
-                    name="board_registration_number"
-                    value={formData.board_registration_number}
-                    onChange={handleChange}
-                    placeholder="CBSE Registration Number"
-                    className="w-full px-3 py-2.5 border border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 text-base"
-                  />
-                </div>
-
-                <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-1.5">Roll Number</label>
-                  <input
-                    type="text"
-                    name="roll_number"
-                    value={formData.roll_number}
-                    onChange={handleChange}
-                    placeholder="Class Roll Number"
-                    className="w-full px-3 py-2.5 border border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 text-base"
-                  />
-                </div>
-              </div>
-            </Section>
-
-            {/* Fee Configuration */}
-            <Section title="🏫 Fee Configuration" name="additional">
-              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-1.5">Transport Route</label>
-                  <select
-                    name="transport_route_id"
-                    value={formData.transport_route_id}
-                    onChange={handleChange}
-                    className="w-full px-3 py-2.5 border border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 text-base"
-                  >
-                    <option value="">No Transport</option>
-                    {transportRoutes.map((route) => (
-                      <option key={route.id} value={route.id}>
-                        {route.name} - ₹{(route.monthly_fee / 100).toFixed(0)}/month
-                      </option>
-                    ))}
-                  </select>
-                </div>
-
-                <div className="flex items-center pt-6">
-                  <input
-                    type="checkbox"
-                    name="has_hostel"
-                    checked={formData.has_hostel}
-                    onChange={handleChange}
-                    className="h-4 w-4 text-indigo-600 focus:ring-indigo-500 border-gray-300 rounded"
-                  />
-                  <label className="ml-2 block text-sm text-gray-700">
-                    Hostel Facility
-                  </label>
-                </div>
-              </div>
-            </Section>
-          </div>
-        </form>
-
-        {/* Footer Actions */}
-        <div className="sticky bottom-0 bg-white border-t border-gray-200 px-4 sm:px-6 py-4 rounded-b-lg flex-shrink-0">
-          <div className="flex flex-col-reverse sm:flex-row gap-3 sm:justify-end">
-            <button
-              type="button"
-              onClick={onClose}
-              className="w-full sm:w-auto px-6 py-2.5 border border-gray-300 rounded-lg text-sm font-medium text-gray-700 bg-white hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500 transition-colors"
-            >
-              Cancel
-            </button>
-            <button
-              type="submit"
-              onClick={handleSubmit}
-              disabled={loading}
-              className="w-full sm:w-auto px-6 py-2.5 border border-transparent rounded-lg shadow-sm text-sm font-medium text-white bg-indigo-600 hover:bg-indigo-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
-            >
-              {loading ? 'Saving...' : (student ? 'Update Student' : 'Add Student')}
-            </button>
-          </div>
-        </div>
-      </div>
-    </div>
+            {/* Form Actions */}
+            <div className="flex justify-end gap-3 pt-4 border-t">
+              <Button
+                type="button"
+                variant="outline"
+                onClick={onClose}
+                disabled={form.formState.isSubmitting}
+              >
+                Cancel
+              </Button>
+              <Button type="submit" disabled={form.formState.isSubmitting}>
+                {form.formState.isSubmitting
+                  ? 'Saving...'
+                  : student
+                  ? 'Update Student'
+                  : 'Add Student'}
+              </Button>
+            </div>
+          </form>
+        </Form>
+      </DialogContent>
+    </Dialog>
   );
 }

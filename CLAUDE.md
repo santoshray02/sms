@@ -195,6 +195,202 @@ docker compose exec db psql -U school_admin -d school_management -c "SELECT * FR
    // No Redux or external state libraries
    ```
 
+6. **Use Shadcn UI for ALL forms and modals**
+   ```typescript
+   // ✅ CORRECT - Use Shadcn UI + React Hook Form + Zod
+   import { useForm } from 'react-hook-form';
+   import { zodResolver } from '@hookform/resolvers/zod';
+   import { z } from 'zod';
+   import { Dialog, DialogContent, DialogHeader, DialogTitle } from './ui/dialog';
+   import { Form, FormField, FormItem, FormLabel, FormControl, FormMessage } from './ui/form';
+   import { Input } from './ui/input';
+   import { Button } from './ui/button';
+
+   const schema = z.object({
+     name: z.string().min(1, 'Name is required'),
+     age: z.coerce.number().positive(),
+   });
+
+   function MyForm() {
+     const form = useForm({ resolver: zodResolver(schema) });
+     return (
+       <Dialog open onOpenChange={onClose}>
+         <DialogContent>
+           <Form {...form}>
+             <form onSubmit={form.handleSubmit(onSubmit)}>
+               <FormField name="name" render={({ field }) => (
+                 <FormItem>
+                   <FormLabel>Name *</FormLabel>
+                   <FormControl><Input {...field} /></FormControl>
+                   <FormMessage />
+                 </FormItem>
+               )} />
+               <Button type="submit">Submit</Button>
+             </form>
+           </Form>
+         </DialogContent>
+       </Dialog>
+     );
+   }
+
+   // ❌ WRONG - Don't use manual state management or custom modals
+   const [formData, setFormData] = useState({});
+   const handleChange = (e) => setFormData({ ...formData, [e.target.name]: e.target.value });
+   ```
+
+### Shadcn UI Component Guidelines
+
+**Installed Components:**
+- dialog, form, input, button, select, textarea, label, card, accordion, checkbox
+
+**Key Patterns:**
+
+1. **Forms with Zod Validation**
+   ```typescript
+   // Always use z.coerce.number() for number inputs
+   const schema = z.object({
+     amount: z.coerce.number().min(0).multipleOf(0.01),
+     student_id: z.coerce.number().positive(),
+     percentage: z.coerce.number().min(0).max(100).optional().or(z.literal('')),
+     email: z.string().email().optional().or(z.literal('')),
+     phone: z.string().regex(/^[0-9]{10,15}$/, 'Must be 10-15 digits'),
+   });
+   ```
+
+2. **Dialog Structure**
+   ```typescript
+   <Dialog open={isOpen} onOpenChange={onClose}>
+     <DialogContent className="sm:max-w-2xl max-h-[90vh] overflow-y-auto">
+       <DialogHeader>
+         <DialogTitle>{isEditMode ? 'Edit' : 'Add New'}</DialogTitle>
+       </DialogHeader>
+       <Form {...form}>
+         {/* form content */}
+       </Form>
+     </DialogContent>
+   </Dialog>
+   ```
+
+3. **FormField Pattern (use for ALL inputs)**
+   ```typescript
+   <FormField
+     control={form.control}
+     name="field_name"
+     render={({ field }) => (
+       <FormItem>
+         <FormLabel>Label *</FormLabel>
+         <FormControl>
+           <Input type="text" placeholder="..." {...field} />
+         </FormControl>
+         <FormDescription>Optional helper text</FormDescription>
+         <FormMessage />
+       </FormItem>
+     )}
+   />
+   ```
+
+4. **Select Dropdown Pattern**
+   ```typescript
+   <FormField
+     control={form.control}
+     name="class_id"
+     render={({ field }) => (
+       <FormItem>
+         <FormLabel>Class *</FormLabel>
+         <Select onValueChange={field.onChange} value={field.value?.toString()}>
+           <FormControl>
+             <SelectTrigger>
+               <SelectValue placeholder="Select class" />
+             </SelectTrigger>
+           </FormControl>
+           <SelectContent>
+             {classes.map((cls) => (
+               <SelectItem key={cls.id} value={cls.id.toString()}>
+                 {cls.name}
+               </SelectItem>
+             ))}
+           </SelectContent>
+         </Select>
+         <FormMessage />
+       </FormItem>
+     )}
+   />
+   ```
+
+5. **Checkbox Pattern**
+   ```typescript
+   <FormField
+     control={form.control}
+     name="has_hostel"
+     render={({ field }) => (
+       <FormItem className="flex flex-row items-start space-x-3 space-y-0">
+         <FormControl>
+           <Checkbox checked={field.value} onCheckedChange={field.onChange} />
+         </FormControl>
+         <div className="space-y-1 leading-none">
+           <FormLabel>Hostel Facility</FormLabel>
+         </div>
+       </FormItem>
+     )}
+   />
+   ```
+
+6. **Accordion for Complex Forms**
+   ```typescript
+   import { Accordion, AccordionItem, AccordionContent, AccordionTrigger } from './ui/accordion';
+
+   <Accordion type="multiple" defaultValue={['basic']} className="w-full">
+     <AccordionItem value="basic">
+       <AccordionTrigger className="text-base font-semibold">
+         📋 Basic Information
+       </AccordionTrigger>
+       <AccordionContent className="space-y-4 pt-4">
+         {/* fields */}
+       </AccordionContent>
+     </AccordionItem>
+   </Accordion>
+   ```
+
+7. **Error Handling**
+   ```typescript
+   // Root errors (API errors)
+   {form.formState.errors.root && (
+     <div className="rounded-md bg-destructive/15 p-3 text-sm text-destructive">
+       {form.formState.errors.root.message}
+     </div>
+   )}
+
+   // Set root errors in catch block
+   catch (err: any) {
+     form.setError('root', {
+       type: 'manual',
+       message: err.response?.data?.detail || 'Failed to save',
+     });
+   }
+   ```
+
+8. **Form Actions**
+   ```typescript
+   <div className="flex justify-end gap-3 pt-4 border-t">
+     <Button type="button" variant="outline" onClick={onClose} disabled={form.formState.isSubmitting}>
+       Cancel
+     </Button>
+     <Button type="submit" disabled={form.formState.isSubmitting}>
+       {form.formState.isSubmitting ? 'Saving...' : 'Save'}
+     </Button>
+   </div>
+   ```
+
+**Installing New Components:**
+```bash
+# Always run inside frontend container
+docker compose exec frontend npx shadcn@latest add <component-name>
+
+# Examples:
+docker compose exec frontend npx shadcn@latest add badge
+docker compose exec frontend npx shadcn@latest add alert
+```
+
 ## Database Conventions
 
 ### Schema Design Rules
